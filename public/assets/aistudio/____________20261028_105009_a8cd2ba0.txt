@@ -1,0 +1,5111 @@
+﻿================================================================================
+【プロジェクトコード一覧（AI送付用）】
+出力日時: 2026/10/28 10:50:09
+対象フォルダ: C:\Users\taka9\.gemini\antigravity\scratch\ミヤウチメディカル\接客実績入力Webアプリケーション\最新
+総ファイル数: 16 件
+※ .env などの機密・環境変数設定ファイル、node_modules 等は除外されています。
+================================================================================
+
+【含まれるファイル一覧】
+  [001] gas\.clasp.json
+  [002] gas\admin.html
+  [003] gas\API_管理.js
+  [004] gas\API_接客.js
+  [005] gas\appsscript.json
+  [006] gas\index.html
+  [007] gas\コード.js
+  [008] gas\サーバー_セットアップ.js
+  [009] gas\シート操作.js
+  [010] gas\モーダル_完了通知.html
+  [011] gas\ロジック_管理.html
+  [012] gas\ロジック_接客実績.html
+  [013] gas\画面_管理.html
+  [014] gas\画面_接客実績.html
+  [015] gas\共通ユーティリティ.js
+  [016] gas\定数.js
+
+================================================================================
+[FILE 1/16] gas\.clasp.json
+================================================================================
+{
+  "scriptId": "1zYPb8Jt2QNQCdWiAs_OfHIjWILorRrVJIXqtr3EGsramcW6MlsD9SW_x",
+  "rootDir": "",
+  "scriptExtensions": [
+    ".js",
+    ".gs"
+  ],
+  "htmlExtensions": [
+    ".html"
+  ],
+  "jsonExtensions": [
+    ".json"
+  ],
+  "filePushOrder": [],
+  "skipSubdirectories": false
+}
+
+================================================================================
+[FILE 2/16] gas\admin.html
+================================================================================
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title><?= appTitle ?></title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Vue.js 3 CDN (Production build) -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&family=Noto+Sans+JP:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Noto Sans JP"', '"Plus Jakarta Sans"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif']
+          },
+          colors: {
+            brand: {
+              seikotsu: '#059669', // Emerald 600
+              daikichi: '#d97706'  // Amber 600
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    body {
+      font-family: 'Noto Sans JP', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    [v-cloak] {
+      display: none !important;
+    }
+    /* スムーズなアコーディオンやモーダルのトランジション */
+    .fade-enter-active, .fade-leave-active {
+      transition: opacity 0.2s ease;
+    }
+    .fade-enter-from, .fade-leave-to {
+      opacity: 0;
+    }
+    .slide-enter-active, .slide-leave-active {
+      transition: all 0.25s ease-out;
+    }
+    .slide-enter-from, .slide-leave-to {
+      opacity: 0;
+      transform: translateY(-8px);
+    }
+    /* スクロールバーのカスタマイズ */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+<body class="bg-slate-100 text-slate-800 antialiased selection:bg-slate-700 selection:text-white min-h-screen">
+  
+  <div id="adminApp" v-cloak class="min-h-screen flex flex-col">
+    <!-- 管理画面メインUIパーツ -->
+    <?!= include('画面_管理'); ?>
+  </div>
+
+  <!-- 管理ロジック（Vue 3 Composable）パーツ -->
+  <?!= include('ロジック_管理'); ?>
+
+  <!-- Vue アプリケーション初期化 -->
+  <script>
+    (function() {
+      try {
+        const { createApp } = Vue;
+
+        // サーバーサイド（doGet）から渡された初期データを取得
+        const initialData = <?!= initialDataJson ?>;
+
+        const app = createApp({
+          setup() {
+            return useAdminManagement(initialData);
+          }
+        });
+
+        app.mount('#adminApp');
+      } catch (err) {
+        console.error('管理者画面Vueアプリケーション初期化エラー:', err);
+      }
+    })();
+  </script>
+</body>
+</html>
+
+
+================================================================================
+[FILE 3/16] gas\API_管理.js
+================================================================================
+/**
+ * 接客実績入力Webアプリケーション
+ * 管理画面向け API（マスタ取得・更新）
+ */
+
+/**
+ * 管理画面用の初期データ取得
+ * @return {Object}
+ */
+function getAdminInitialData() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const webAppUrl = getWebAppUrl_();
+    const staffList = loadStaffList_(ss, false);
+    const items = loadItems_(ss, { includeInactive: true });
+    const reasons = loadReasons_(ss, { includeInactive: true });
+
+    return {
+      success: true,
+      data: {
+        businessTypes: CONFIG.BUSINESS_TYPES,
+        themes: CONFIG.THEMES,
+        items: items,
+        reasons: reasons, // { [businessType]: { [itemKey]: Array<Reason> } }
+        staffList: staffList,
+        webAppUrl: webAppUrl,
+        reservedKeys: CONFIG.RESERVED_KEYS
+      }
+    };
+  } catch (error) {
+    console.error('getAdminInitialData エラー:', error);
+    return {
+      success: false,
+      message: 'マスタデータの読み込み中にエラーが発生しました: ' + error.message
+    };
+  }
+}
+
+/**
+ * 項目マスタの保存および回答シートのヘッダー自動同期
+ * @param {string} businessType 
+ * @param {Array<Object>} items 
+ * @return {Object}
+ */
+function saveItemMaster(businessType, items) {
+  return withLock_(() => {
+    if (!businessType || !Array.isArray(items)) {
+      return { success: false, message: '不正なパラメータです。' };
+    }
+
+    // 予約キーとの衝突チェック
+    const reserved = new Set(CONFIG.RESERVED_KEYS);
+    for (const item of items) {
+      const key = String(item.key || '').trim();
+      if (reserved.has(key)) {
+        return { success: false, message: `項目キー「${key}」はシステム予約語のため使用できません。別のキーを指定してください。` };
+      }
+    }
+
+    // 整骨院の場合は金額トリガーを強制的にOFFに補正
+    if (businessType === '整骨院') {
+      items.forEach(item => {
+        if (Array.isArray(item.options)) {
+          item.options.forEach(opt => {
+            opt.isAmountTrigger = false;
+          });
+        }
+      });
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    saveItems_(ss, businessType, items);
+    syncAnswerSheetHeaders_(ss, businessType, items);
+
+    SpreadsheetApp.flush();
+
+    return {
+      success: true,
+      message: `${businessType} の入力項目設定と回答シートを正常に更新・同期しました。`
+    };
+  });
+}
+
+/**
+ * 理由マスタの保存（項目別マップ構造に対応）
+ * @param {string} businessType 
+ * @param {Object} reasonsData { [itemKey]: Array<Reason> }
+ * @return {Object}
+ */
+function saveReasonMaster(businessType, reasonsData) {
+  return withLock_(() => {
+    if (!businessType || !reasonsData || typeof reasonsData !== 'object') {
+      return { success: false, message: '不正なパラメータです。' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    saveReasons_(ss, businessType, reasonsData);
+
+    SpreadsheetApp.flush();
+
+    return {
+      success: true,
+      message: `${businessType} の未提案理由設定を正常に更新しました。`
+    };
+  });
+}
+
+/**
+ * スタッフマスタの一括保存
+ * @param {Array<Object>} staffList 
+ * @return {Object}
+ */
+function saveStaffMaster(staffList) {
+  return withLock_(() => {
+    if (!Array.isArray(staffList)) {
+      return { success: false, message: '不正なスタッフデータです。' };
+    }
+
+    // スタッフIDの半角英数字チェック
+    for (const st of staffList) {
+      const id = String(st.id || '').trim();
+      if (!id) {
+        return { success: false, message: 'スタッフIDが空の行があります。' };
+      }
+      if (!/^[A-Za-z0-9]+$/.test(id)) {
+        return { success: false, message: `スタッフID「${id}」の形式が不正です（半角英数字のみ有効）。` };
+      }
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    saveStaffList_(ss, staffList);
+
+    SpreadsheetApp.flush();
+
+    return {
+      success: true,
+      message: 'スタッフ情報を正常に保存しました。'
+    };
+  });
+}
+
+
+================================================================================
+[FILE 4/16] gas\API_接客.js
+================================================================================
+/**
+ * 接客実績入力Webアプリケーション
+ * 一般向け接客実績入力 API
+ */
+
+/**
+ * 接客実績画面の初期データ取得
+ * @param {string} staffId 
+ * @return {Object}
+ */
+function getInitialData(staffId) {
+  try {
+    if (!staffId) {
+      return { success: false, message: 'スタッフIDが指定されていません。' };
+    }
+
+    const cleanStaffId = String(staffId).trim();
+    if (!/^[A-Za-z0-9]+$/.test(cleanStaffId)) {
+      return { success: false, message: 'スタッフIDの形式が不正です（半角英数字のみ有効）。' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const staff = findStaffById_(ss, cleanStaffId);
+
+    if (!staff) {
+      return { success: false, message: `指定されたスタッフID（${cleanStaffId}）が見つかりません。` };
+    }
+    if (!staff.isActive) {
+      return { success: false, message: '指定されたスタッフアカウントは現在無効化されています。管理者にお問い合わせください。' };
+    }
+
+    // 有効な項目および項目別の理由マスタを取得
+    const itemsMap = loadItems_(ss, { businessType: staff.businessType, includeInactive: false });
+    const fields = itemsMap[staff.businessType] || [];
+
+    const reasonsMap = loadReasons_(ss, { businessType: staff.businessType, includeInactive: false });
+    const reasonsByItem = (reasonsMap && reasonsMap[staff.businessType]) ? reasonsMap[staff.businessType] : {};
+
+    return {
+      success: true,
+      data: {
+        staff: staff,
+        fields: fields,
+        reasonsByItem: reasonsByItem,
+        theme: CONFIG.THEMES[staff.businessType] || null
+      }
+    };
+
+  } catch (error) {
+    console.error('getInitialData エラー:', error);
+    return { success: false, message: '初期データの読み込み中にエラーが発生しました: ' + error.message };
+  }
+}
+
+/**
+ * 接客実績データの登録処理
+ * @param {Object} formData 
+ * @return {Object}
+ */
+function submitServiceRecord(formData) {
+  return withLock_(() => {
+    if (!formData) {
+      return { success: false, message: '不正な送信データです。' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // 1. スタッフ情報のサーバー再検証（改ざん防止）
+    const staffId = String((formData.staff && formData.staff.id) || formData.staffId || '').trim();
+    if (!staffId) {
+      return { success: false, message: 'スタッフIDが指定されていません。' };
+    }
+    if (!/^[A-Za-z0-9]+$/.test(staffId)) {
+      return { success: false, message: 'スタッフIDの形式が不正です。' };
+    }
+
+    const verifiedStaff = findStaffById_(ss, staffId);
+    if (!verifiedStaff) {
+      return { success: false, message: `スタッフID「${staffId}」が見つかりません。` };
+    }
+    if (!verifiedStaff.isActive) {
+      return { success: false, message: 'スタッフアカウントが無効化されています。管理者にご確認ください。' };
+    }
+
+    const sheetName = '回答_' + verifiedStaff.businessType;
+    let targetSheet = ss.getSheetByName(sheetName);
+    if (!targetSheet) {
+      return { success: false, message: `保存先シート「${sheetName}」が存在しません。` };
+    }
+
+    // 2. 二重送信防止（送信ID / UUID 照合）
+    const submissionId = String(formData.submissionId || '').trim();
+    if (!submissionId) {
+      return { success: false, message: '送信ID（UUID）が存在しません。' };
+    }
+
+    const cache = CacheService.getScriptCache();
+    if (cache.get('sub_' + submissionId)) {
+      return { success: true, message: '接客実績を正常に登録しました。（重複防止）' };
+    }
+
+    const lastCol = targetSheet.getLastColumn();
+    if (lastCol === 0) {
+      return { success: false, message: '回答シートに列が存在しません。' };
+    }
+
+    const headerValues = targetSheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h || '').trim());
+    const submissionIdCol = headerValues.indexOf('送信ID') + 1;
+
+    if (submissionIdCol > 0) {
+      const lastRow = targetSheet.getLastRow();
+      if (lastRow > 1) {
+        const checkStart = Math.max(2, lastRow - 49);
+        const checkCount = lastRow - checkStart + 1;
+        const recentSubmissionIds = targetSheet.getRange(checkStart, submissionIdCol, checkCount, 1)
+          .getValues()
+          .flat()
+          .map(v => String(v || '').trim());
+
+        if (recentSubmissionIds.includes(submissionId)) {
+          cache.put('sub_' + submissionId, '1', 600);
+          return { success: true, message: '接客実績を正常に登録しました。（重複防止）' };
+        }
+      }
+    }
+
+    // 3. マスタ定義による入力値バリデーション
+    const itemsMap = loadItems_(ss, { businessType: verifiedStaff.businessType, includeInactive: false });
+    const fields = itemsMap[verifiedStaff.businessType] || [];
+    const validItemsMap = {};
+
+    fields.forEach(field => {
+      validItemsMap[field.key] = {
+        label: field.label,
+        options: field.options.map(o => o.text),
+        reasonOptions: new Set(field.options.filter(o => o.isReasonTrigger).map(o => o.text)),
+        amountOptions: new Set(field.options.filter(o => o.isAmountTrigger).map(o => o.text))
+      };
+    });
+
+    const reasonsMap = loadReasons_(ss, { businessType: verifiedStaff.businessType, includeInactive: false });
+    const reasonsByItem = (reasonsMap && reasonsMap[verifiedStaff.businessType]) ? reasonsMap[verifiedStaff.businessType] : {};
+
+    const answers = formData.answers || {};
+    const reasons = formData.reasons || {};
+    let requiresAmount = false;
+
+    for (const itemKey in validItemsMap) {
+      const itemInfo = validItemsMap[itemKey];
+      if (itemInfo.options.length === 0) continue;
+
+      const selectedVal = answers[itemKey];
+      if (!selectedVal) {
+        return { success: false, message: `「${itemInfo.label}」を選択してください。` };
+      }
+      if (!itemInfo.options.includes(selectedVal)) {
+        return { success: false, message: `「${itemInfo.label}」の選択値「${selectedVal}」は無効です。` };
+      }
+
+      // 未提案理由バリデーション（項目別）
+      if (itemInfo.reasonOptions.has(selectedVal)) {
+        const itemReason = String(reasons[itemKey] || '').trim();
+        const validReasonsList = (reasonsByItem[itemKey] || []).map(r => r.text);
+        
+        if (!itemReason) {
+          return { success: false, message: `「${itemInfo.label}」の未提案理由を選択してください。` };
+        }
+        if (validReasonsList.length > 0 && !validReasonsList.includes(itemReason)) {
+          return { success: false, message: `「${itemInfo.label}」の未提案理由「${itemReason}」はマスタに登録されていません。` };
+        }
+      }
+
+      // 金額入力トリガー（買取大吉のみ）
+      if (verifiedStaff.businessType === '買取大吉' && itemInfo.amountOptions.has(selectedVal)) {
+        requiresAmount = true;
+      }
+    }
+
+    // 金額バリデーション（0以上の整数）
+    if (verifiedStaff.businessType === '買取大吉' && requiresAmount) {
+      const amt = formData.amount;
+      if (!isValidIntegerAmount_(amt)) {
+        return { success: false, message: '買取金額を0以上の整数で入力してください。' };
+      }
+    }
+
+    // 4. 回答シートへの行追加（ヘッダー文字列ベースの完全同期）
+    const timestampStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss');
+    const targetDateStr = formData.targetDate 
+      ? String(formData.targetDate).trim().replace(/-/g, '/') 
+      : Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+    const newRow = [];
+
+    // ヘッダー名と項目キーのマッピング辞書を作成
+    const labelToKeyMap = {};
+    const reasonLabelToKeyMap = {};
+    fields.forEach(f => {
+      labelToKeyMap[f.label] = f.key;
+      reasonLabelToKeyMap[`${f.label}_未提案理由`] = f.key;
+    });
+
+    for (let c = 0; c < headerValues.length; c++) {
+      const colHeader = headerValues[c];
+
+      if (colHeader === 'タイムスタンプ') {
+        newRow.push(timestampStr);
+      } else if (colHeader === '対応日') {
+        newRow.push(targetDateStr);
+      } else if (colHeader === 'スタッフID') {
+        newRow.push(verifiedStaff.id);
+      } else if (colHeader === 'スタッフ名') {
+        newRow.push(verifiedStaff.name);
+      } else if (colHeader === '店舗名') {
+        newRow.push(verifiedStaff.storeName);
+      } else if (colHeader === '買取金額') {
+        if (verifiedStaff.businessType === '買取大吉' && requiresAmount && formData.amount !== null && formData.amount !== undefined && formData.amount !== '') {
+          newRow.push(Number(formData.amount));
+        } else {
+          newRow.push('');
+        }
+      } else if (colHeader === '送信ID') {
+        newRow.push(submissionId);
+      } else if (labelToKeyMap[colHeader]) {
+        const itemKey = labelToKeyMap[colHeader];
+        newRow.push(answers[itemKey] || '');
+      } else if (reasonLabelToKeyMap[colHeader]) {
+        const itemKey = reasonLabelToKeyMap[colHeader];
+        const selectedVal = answers[itemKey];
+        const isTriggered = validItemsMap[itemKey] && validItemsMap[itemKey].reasonOptions.has(selectedVal);
+        newRow.push(isTriggered ? (reasons[itemKey] || '') : '');
+      } else {
+        newRow.push('');
+      }
+    }
+
+    targetSheet.appendRow(newRow);
+
+    // キャッシュに submissionId を登録（600秒）
+    cache.put('sub_' + submissionId, '1', 600);
+
+    SpreadsheetApp.flush();
+
+    return {
+      success: true,
+      message: '接客実績を正常に登録しました。'
+    };
+  });
+}
+
+/**
+ * 接客実績データの一括登録処理（方式A：複数行明細入力用）
+ * @param {Object} batchData 
+ * @return {Object}
+ */
+function submitBatchServiceRecords(batchData) {
+  return withLock_(() => {
+    if (!batchData) {
+      return { success: false, message: '不正な送信データです。' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // 1. スタッフ情報のサーバー再検証（改ざん防止）
+    const staffId = String(batchData.staffId || (batchData.staff && batchData.staff.id) || '').trim();
+    if (!staffId) {
+      return { success: false, message: 'スタッフIDが指定されていません。' };
+    }
+    if (!/^[A-Za-z0-9]+$/.test(staffId)) {
+      return { success: false, message: 'スタッフIDの形式が不正です。' };
+    }
+
+    const verifiedStaff = findStaffById_(ss, staffId);
+    if (!verifiedStaff) {
+      return { success: false, message: `スタッフID「${staffId}」が見つかりません。` };
+    }
+    if (!verifiedStaff.isActive) {
+      return { success: false, message: 'スタッフアカウントが無効化されています。管理者にご確認ください。' };
+    }
+
+    // 2. 二重送信防止（batchId / UUID 照合）
+    const batchId = String(batchData.batchId || batchData.submissionId || '').trim();
+    if (!batchId) {
+      return { success: false, message: '送信ID（UUID）が存在しません。' };
+    }
+
+    const cache = CacheService.getScriptCache();
+    if (cache.get('batch_' + batchId)) {
+      return { success: true, message: '接客実績を一括登録しました。（重複防止）' };
+    }
+
+    const sheetName = '回答_' + verifiedStaff.businessType;
+    let targetSheet = ss.getSheetByName(sheetName);
+    if (!targetSheet) {
+      return { success: false, message: `保存先シート「${sheetName}」が存在しません。` };
+    }
+
+    const lastCol = targetSheet.getLastColumn();
+    if (lastCol === 0) {
+      return { success: false, message: '回答シートに列が存在しません。' };
+    }
+
+    const headerValues = targetSheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h || '').trim());
+    const submissionIdCol = headerValues.indexOf('送信ID') + 1;
+
+    if (submissionIdCol > 0) {
+      const lastRow = targetSheet.getLastRow();
+      if (lastRow > 1) {
+        const checkStart = Math.max(2, lastRow - 99);
+        const checkCount = lastRow - checkStart + 1;
+        const recentSubmissionIds = targetSheet.getRange(checkStart, submissionIdCol, checkCount, 1)
+          .getValues()
+          .flat()
+          .map(v => String(v || '').trim());
+
+        if (recentSubmissionIds.some(id => id.startsWith(batchId))) {
+          cache.put('batch_' + batchId, '1', 600);
+          return { success: true, message: '接客実績を一括登録しました。（重複防止）' };
+        }
+      }
+    }
+
+    // 3. 明細配列の検証
+    const records = batchData.records;
+    if (!Array.isArray(records) || records.length === 0) {
+      return { success: false, message: '登録する明細データがありません。最低1行入力してください。' };
+    }
+
+    const targetDateStr = batchData.targetDate 
+      ? String(batchData.targetDate).trim().replace(/-/g, '/') 
+      : Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+
+    // マスタ情報取得
+    const itemsMap = loadItems_(ss, { businessType: verifiedStaff.businessType, includeInactive: false });
+    const fields = itemsMap[verifiedStaff.businessType] || [];
+    const validItemsMap = {};
+
+    fields.forEach(field => {
+      validItemsMap[field.key] = {
+        label: field.label,
+        options: field.options.map(o => o.text),
+        reasonOptions: new Set(field.options.filter(o => o.isReasonTrigger).map(o => o.text)),
+        amountOptions: new Set(field.options.filter(o => o.isAmountTrigger).map(o => o.text))
+      };
+    });
+
+    const reasonsMap = loadReasons_(ss, { businessType: verifiedStaff.businessType, includeInactive: false });
+    const reasonsByItem = (reasonsMap && reasonsMap[verifiedStaff.businessType]) ? reasonsMap[verifiedStaff.businessType] : {};
+
+    // 各明細のバリデーション
+    for (let i = 0; i < records.length; i++) {
+      const rec = records[i];
+      const recAnswers = rec.answers || {};
+      const recReasons = rec.reasons || {};
+      let requiresAmount = false;
+
+      for (const itemKey in validItemsMap) {
+        const itemInfo = validItemsMap[itemKey];
+        if (itemInfo.options.length === 0) continue;
+
+        const selectedVal = recAnswers[itemKey];
+        if (!selectedVal) {
+          return { success: false, message: `#${i + 1}行目: 「${itemInfo.label}」を選択してください。` };
+        }
+        if (!itemInfo.options.includes(selectedVal)) {
+          return { success: false, message: `#${i + 1}行目: 「${itemInfo.label}」の選択値「${selectedVal}」は無効です。` };
+        }
+
+        // 未提案理由チェック
+        if (itemInfo.reasonOptions.has(selectedVal)) {
+          const itemReason = String(recReasons[itemKey] || '').trim();
+          const validReasonsList = (reasonsByItem[itemKey] || []).map(r => r.text);
+          if (!itemReason) {
+            return { success: false, message: `#${i + 1}行目: 「${itemInfo.label}」の未提案理由を選択してください。` };
+          }
+          if (validReasonsList.length > 0 && !validReasonsList.includes(itemReason)) {
+            return { success: false, message: `#${i + 1}行目: 「${itemInfo.label}」の未提案理由「${itemReason}」はマスタに登録されていません。` };
+          }
+        }
+
+        // 金額入力チェック
+        if (verifiedStaff.businessType === '買取大吉' && itemInfo.amountOptions.has(selectedVal)) {
+          requiresAmount = true;
+        }
+      }
+
+      if (verifiedStaff.businessType === '買取大吉' && requiresAmount) {
+        if (!isValidIntegerAmount_(rec.amount)) {
+          return { success: false, message: `#${i + 1}行目: 買取金額を0以上の整数で入力してください。` };
+        }
+      }
+    }
+
+    // 4. 行データの作成と一括書き込み
+    const timestampStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss');
+    const labelToKeyMap = {};
+    const reasonLabelToKeyMap = {};
+    fields.forEach(f => {
+      labelToKeyMap[f.label] = f.key;
+      reasonLabelToKeyMap[`${f.label}_未提案理由`] = f.key;
+    });
+
+    const rowsToInsert = [];
+
+    records.forEach((rec, idx) => {
+      const recAnswers = rec.answers || {};
+      const recReasons = rec.reasons || {};
+      const row = [];
+
+      let requiresAmount = false;
+      if (verifiedStaff.businessType === '買取大吉') {
+        for (const itemKey in validItemsMap) {
+          const itemInfo = validItemsMap[itemKey];
+          const selectedVal = recAnswers[itemKey];
+          if (itemInfo.amountOptions.has(selectedVal)) {
+            requiresAmount = true;
+            break;
+          }
+        }
+      }
+
+      for (let c = 0; c < headerValues.length; c++) {
+        const colHeader = headerValues[c];
+
+        if (colHeader === 'タイムスタンプ') {
+          row.push(timestampStr);
+        } else if (colHeader === '対応日') {
+          row.push(targetDateStr);
+        } else if (colHeader === 'スタッフID') {
+          row.push(verifiedStaff.id);
+        } else if (colHeader === 'スタッフ名') {
+          row.push(verifiedStaff.name);
+        } else if (colHeader === '店舗名') {
+          row.push(verifiedStaff.storeName);
+        } else if (colHeader === '買取金額') {
+          if (verifiedStaff.businessType === '買取大吉' && requiresAmount && rec.amount !== null && rec.amount !== undefined && rec.amount !== '') {
+            row.push(Number(rec.amount));
+          } else {
+            row.push('');
+          }
+        } else if (colHeader === '送信ID') {
+          row.push(`${batchId}#${idx + 1}`);
+        } else if (labelToKeyMap[colHeader]) {
+          const itemKey = labelToKeyMap[colHeader];
+          row.push(recAnswers[itemKey] || '');
+        } else if (reasonLabelToKeyMap[colHeader]) {
+          const itemKey = reasonLabelToKeyMap[colHeader];
+          const selectedVal = recAnswers[itemKey];
+          const isTriggered = validItemsMap[itemKey] && validItemsMap[itemKey].reasonOptions.has(selectedVal);
+          row.push(isTriggered ? (recReasons[itemKey] || '') : '');
+        } else {
+          row.push('');
+        }
+      }
+
+      rowsToInsert.push(row);
+    });
+
+    const nextRow = targetSheet.getLastRow() + 1;
+    targetSheet.getRange(nextRow, 1, rowsToInsert.length, headerValues.length).setValues(rowsToInsert);
+
+    cache.put('batch_' + batchId, '1', 600);
+    SpreadsheetApp.flush();
+
+    return {
+      success: true,
+      count: records.length,
+      message: `${records.length}件の接客実績を一括登録しました。`
+    };
+  });
+}
+
+/**
+ * 日次集計データの登録処理（方式B：日次サマリー集計入力用）
+ * @param {Object} summaryData 
+ * @return {Object}
+ */
+function submitDailySummaryRecord(summaryData) {
+  return withLock_(() => {
+    if (!summaryData) {
+      return { success: false, message: '不正な送信データです。' };
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+    // 1. スタッフ情報のサーバー再検証（改ざん防止）
+    const staffId = String(summaryData.staffId || (summaryData.staff && summaryData.staff.id) || '').trim();
+    if (!staffId) {
+      return { success: false, message: 'スタッフIDが指定されていません。' };
+    }
+    if (!/^[A-Za-z0-9]+$/.test(staffId)) {
+      return { success: false, message: 'スタッフIDの形式が不正です。' };
+    }
+
+    const verifiedStaff = findStaffById_(ss, staffId);
+    if (!verifiedStaff) {
+      return { success: false, message: `スタッフID「${staffId}」が見つかりません。` };
+    }
+    if (!verifiedStaff.isActive) {
+      return { success: false, message: 'スタッフアカウントが無効化されています。管理者にご確認ください。' };
+    }
+
+    // 2. 二重送信防止（submissionId / UUID 照合）
+    const submissionId = String(summaryData.submissionId || '').trim();
+    if (!submissionId) {
+      return { success: false, message: '送信ID（UUID）が存在しません。' };
+    }
+
+    const cache = CacheService.getScriptCache();
+    if (cache.get('sum_' + submissionId)) {
+      return { success: true, message: '日次集計を正常に登録しました。（重複防止）' };
+    }
+
+    // 保存先シートの取得
+    const sheetName = verifiedStaff.businessType === '整骨院' 
+      ? CONFIG.SHEETS.SUMMARY_SEIKOTSU 
+      : CONFIG.SHEETS.SUMMARY_DAIKICHI;
+    let targetSheet = ss.getSheetByName(sheetName);
+    if (!targetSheet) {
+      return { 
+        success: false, 
+        message: `保存先シート「${sheetName}」が見つかりません。スプレッドシートにシートが存在することをご確認ください。` 
+      };
+    }
+
+    const lastCol = targetSheet.getLastColumn();
+    if (lastCol === 0) {
+      return { success: false, message: `集計シート「${sheetName}」に列が存在しません。` };
+    }
+
+    const headerValues = targetSheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h || '').trim());
+    const submissionIdCol = headerValues.indexOf('送信ID') + 1;
+
+    if (submissionIdCol > 0) {
+      const lastRow = targetSheet.getLastRow();
+      if (lastRow > 1) {
+        const checkStart = Math.max(2, lastRow - 49);
+        const checkCount = lastRow - checkStart + 1;
+        const recentSubmissionIds = targetSheet.getRange(checkStart, submissionIdCol, checkCount, 1)
+          .getValues()
+          .flat()
+          .map(v => String(v || '').trim());
+
+        if (recentSubmissionIds.includes(submissionId)) {
+          cache.put('sum_' + submissionId, '1', 600);
+          return { success: true, message: '日次集計を正常に登録しました。（重複防止）' };
+        }
+      }
+    }
+
+    // 3. 入力値バリデーション
+    const totalCount = summaryData.totalCount;
+    if (totalCount === null || totalCount === undefined || totalCount === '' || !Number.isInteger(Number(totalCount)) || Number(totalCount) < 0) {
+      return { success: false, message: '本日の総対応件数を0以上の整数で入力してください。' };
+    }
+
+    const targetDateStr = summaryData.targetDate 
+      ? String(summaryData.targetDate).trim().replace(/-/g, '/') 
+      : Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd');
+
+    const itemsMap = loadItems_(ss, { businessType: verifiedStaff.businessType, includeInactive: false });
+    const fields = itemsMap[verifiedStaff.businessType] || [];
+    const reasonsMap = loadReasons_(ss, { businessType: verifiedStaff.businessType, includeInactive: false });
+    const reasonsByItem = (reasonsMap && reasonsMap[verifiedStaff.businessType]) ? reasonsMap[verifiedStaff.businessType] : {};
+
+    const counts = summaryData.counts || {};
+    const reasonCounts = summaryData.reasonCounts || {};
+
+    let totalAmountTriggerCount = 0;
+
+    // 各項目ごとに、未提案件数と未提案理由内訳合計の厳密な一致チェック
+    for (const field of fields) {
+      const fieldKey = field.key;
+      const fCounts = counts[fieldKey] || counts[field.label] || {};
+      const fReasonCounts = reasonCounts[fieldKey] || reasonCounts[field.label] || {};
+
+      // 未提案トリガーの選択肢を集計
+      let unproposedCount = 0;
+      (field.options || []).forEach(opt => {
+        const rawOptVal = fCounts[opt.text];
+        const optCount = (rawOptVal === '' || rawOptVal === null || rawOptVal === undefined) ? 0 : Number(rawOptVal);
+        if (optCount < 0 || !Number.isInteger(optCount)) {
+          throw new Error(`「${field.label} - ${opt.text}」の件数は0以上の整数で入力してください。`);
+        }
+        if (opt.isReasonTrigger) {
+          unproposedCount += optCount;
+        }
+        if (opt.isAmountTrigger) {
+          totalAmountTriggerCount += optCount;
+        }
+      });
+
+      // 未提案理由の内訳合計を集計
+      let reasonSum = 0;
+      const validReasons = reasonsByItem[fieldKey] || [];
+      validReasons.forEach(r => {
+        const rawRVal = fReasonCounts[r.text];
+        const rCount = (rawRVal === '' || rawRVal === null || rawRVal === undefined) ? 0 : Number(rawRVal);
+        if (rCount < 0 || !Number.isInteger(rCount)) {
+          throw new Error(`「${field.label} - ${r.text}」の件数は0以上の整数で入力してください。`);
+        }
+        reasonSum += rCount;
+      });
+
+      // 厳密な整合性チェック
+      if (unproposedCount !== reasonSum) {
+        return { 
+          success: false, 
+          message: `「${field.label}」の未提案数（${unproposedCount}件）と理由内訳の合計（${reasonSum}件）が一致していません。` 
+        };
+      }
+    }
+
+    // 買取大吉の場合の金額チェック
+    if (verifiedStaff.businessType === '買取大吉' && totalAmountTriggerCount > 0) {
+      const totalAmt = summaryData.totalAmount;
+      if (!isValidIntegerAmount_(totalAmt)) {
+        return { success: false, message: '成約が1件以上あるため、買取成約総額を0以上の整数で入力してください。' };
+      }
+    }
+
+    // 4. ヘッダー名に対応する値を動的マッピングして1行追加
+    const timestampStr = Utilities.formatDate(new Date(), 'Asia/Tokyo', 'yyyy/MM/dd HH:mm:ss');
+    const newRow = [];
+
+    for (let c = 0; c < headerValues.length; c++) {
+      const colHeader = headerValues[c];
+
+      if (colHeader === 'タイムスタンプ') {
+        newRow.push(timestampStr);
+      } else if (colHeader === '対応日') {
+        newRow.push(targetDateStr);
+      } else if (colHeader === 'スタッフID') {
+        newRow.push(verifiedStaff.id);
+      } else if (colHeader === 'スタッフ名') {
+        newRow.push(verifiedStaff.name);
+      } else if (colHeader === '店舗名') {
+        newRow.push(verifiedStaff.storeName);
+      } else if (colHeader === '本日の総対応件数') {
+        newRow.push(Number(totalCount) || 0);
+      } else if (colHeader === '買取成約総額') {
+        if (verifiedStaff.businessType === '買取大吉' && totalAmountTriggerCount > 0 && summaryData.totalAmount !== null && summaryData.totalAmount !== undefined && summaryData.totalAmount !== '') {
+          newRow.push(Number(summaryData.totalAmount));
+        } else {
+          newRow.push(0);
+        }
+      } else if (colHeader === '送信ID') {
+        newRow.push(submissionId);
+      } else {
+        let matched = false;
+        let cellVal = 0;
+
+        // 1. 理由カラムのチェック: `${field.label}_理由_${r.text}`
+        for (const field of fields) {
+          const prefix = `${field.label}_理由_`;
+          if (colHeader.startsWith(prefix)) {
+            const rText = colHeader.slice(prefix.length).trim();
+            const fReasonCounts = reasonCounts[field.key] || reasonCounts[field.label] || {};
+            const rawVal = fReasonCounts[rText];
+            cellVal = (rawVal === '' || rawVal === null || rawVal === undefined) ? 0 : Number(rawVal);
+            matched = true;
+            break;
+          }
+        }
+
+        // 2. 選択肢カラムのチェック: `${field.label}_${opt.text}`
+        if (!matched) {
+          for (const field of fields) {
+            const prefix = `${field.label}_`;
+            if (colHeader.startsWith(prefix)) {
+              const optText = colHeader.slice(prefix.length).trim();
+              const fCounts = counts[field.key] || counts[field.label] || {};
+              const rawVal = fCounts[optText];
+              cellVal = (rawVal === '' || rawVal === null || rawVal === undefined) ? 0 : Number(rawVal);
+              matched = true;
+              break;
+            }
+          }
+        }
+
+        newRow.push(matched ? cellVal : '');
+      }
+    }
+
+    targetSheet.appendRow(newRow);
+
+    cache.put('sum_' + submissionId, '1', 600);
+    SpreadsheetApp.flush();
+
+    return {
+      success: true,
+      message: '日次集計を正常に登録しました。'
+    };
+  });
+}
+
+
+================================================================================
+[FILE 5/16] gas\appsscript.json
+================================================================================
+{
+  "timeZone": "Asia/Tokyo",
+  "dependencies": {
+  },
+  "exceptionLogging": "STACKDRIVER",
+  "runtimeVersion": "V8"
+}
+
+================================================================================
+[FILE 6/16] gas\index.html
+================================================================================
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title><?= appTitle ?></title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Vue.js 3 CDN (Production build) -->
+  <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+
+  <style>
+    body {
+      font-family: 'Noto Sans JP', 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+    [v-cloak] {
+      display: none !important;
+    }
+    /* スマホ入力時の自動ズーム防止 */
+    input, select, textarea, button {
+      font-size: 16px !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-50 antialiased selection:bg-slate-700 selection:text-white">
+  
+  <div id="app" v-cloak>
+    <!-- メイン入力画面パーツ -->
+    <?!= include('画面_接客実績'); ?>
+
+    <!-- 完了通知モーダルパーツ -->
+    <?!= include('モーダル_完了通知'); ?>
+  </div>
+
+  <!-- ビジネスロジック（Vue 3 Composable）パーツ -->
+  <?!= include('ロジック_接客実績'); ?>
+
+  <!-- Vue アプリケーション初期化 -->
+  <script>
+    (function() {
+      try {
+        const { createApp } = Vue;
+
+        // サーバーサイド（doGet）から渡された初期データを安全に取得
+        const initialData = <?!= initialDataJson ?>;
+
+        const app = createApp({
+          setup() {
+            return useCustomerService(initialData);
+          }
+        });
+
+        app.mount('#app');
+      } catch (err) {
+        console.error('Vue アプリケーション初期化エラー:', err);
+      }
+    })();
+  </script>
+</body>
+</html>
+
+
+================================================================================
+[FILE 7/16] gas\コード.js
+================================================================================
+/**
+ * 接客実績入力Webアプリケーション
+ * エントリーポイント & 共通HTMLレンダラー
+ */
+
+function doGet(e) {
+  try {
+    const page = e && e.parameter ? e.parameter.page : null;
+
+    // 管理画面 (?page=admin)
+    if (page === 'admin') {
+      const adminData = getAdminInitialData();
+      if (!adminData || !adminData.success) {
+        return renderErrorPage('管理者データ取得エラー', adminData ? adminData.message : '初期データの取得に失敗しました。');
+      }
+      const template = HtmlService.createTemplateFromFile('admin');
+      template.initialDataJson = JSON.stringify(adminData.data || {}).replace(/</g, '\\u003c');
+      template.appTitle = '接客実績入力 マスタ管理システム';
+
+      return template.evaluate()
+        .setTitle('接客実績入力 マスタ管理システム')
+        .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+    }
+
+    const rawStaffId = e && e.parameter ? e.parameter.id : null;
+    if (!rawStaffId) {
+      return renderErrorPage('アクセスエラー', 'スタッフIDが指定されていません。専用URLからアクセスしてください。');
+    }
+
+    const staffId = String(rawStaffId).trim();
+    // 半角英数字チェック
+    if (!/^[A-Za-z0-9]+$/.test(staffId)) {
+      return renderErrorPage('無効なアクセスです', 'スタッフIDの形式が不正です（半角英数字のみ有効）。');
+    }
+
+    const initialData = getInitialData(staffId);
+    if (!initialData || !initialData.success) {
+      return renderErrorPage('無効なアクセスです', initialData ? initialData.message : 'スタッフ情報の取得に失敗しました。');
+    }
+
+    const template = HtmlService.createTemplateFromFile('index');
+    template.initialDataJson = JSON.stringify(initialData.data).replace(/</g, '\\u003c');
+    template.appTitle = initialData.data.staff.businessType + ' 接客実績入力';
+
+    return template.evaluate()
+      .setTitle(initialData.data.staff.businessType + ' 接客実績入力')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no');
+
+  } catch (error) {
+    console.error('doGet エラー:', error);
+    return renderErrorPage('システムエラー', '画面の読み込み中にエラーが発生しました: ' + error.message);
+  }
+}
+
+function include(filename) {
+  return HtmlService.createHtmlOutputFromFile(filename).getContent();
+}
+
+function renderErrorPage(title, message) {
+  const safeTitle = escapeHtml_(title);
+  const safeMessage = escapeHtml_(message);
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="ja">
+    <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>${safeTitle}</title>
+      <script src="https://cdn.tailwindcss.com"></script>
+      <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+      <style>body { font-family: 'Noto Sans JP', 'Plus Jakarta Sans', sans-serif; }</style>
+    </head>
+    <body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
+      <div class="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 text-center border border-slate-200">
+        <div class="w-16 h-16 bg-rose-100 text-rose-500 rounded-full flex items-center justify-center mx-auto mb-5">
+          <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+          </svg>
+        </div>
+        <h1 class="text-xl font-bold text-slate-800 mb-2">${safeTitle}</h1>
+        <p class="text-sm text-slate-600 leading-relaxed mb-6">${safeMessage}</p>
+        <div class="p-3 bg-slate-50 rounded-xl text-xs text-slate-400">
+          管理者から案内された専用リンクであることをご確認ください。
+        </div>
+      </div>
+    </body>
+    </html>
+  `;
+  return HtmlService.createHtmlOutput(html)
+    .setTitle(safeTitle)
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1.0');
+}
+
+
+================================================================================
+[FILE 8/16] gas\サーバー_セットアップ.js
+================================================================================
+/**
+ * 接客実績入力Webアプリケーション
+ * スプレッドシート初期セットアップスクリプト
+ */
+
+function setupSpreadsheet() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const webAppUrl = getWebAppUrl_();
+
+  setupStaffMasterSheet(ss, webAppUrl);
+  setupItemMasterSheet(ss);
+  setupReasonMasterSheet(ss);
+  setupAnswerSheet(ss, '整骨院');
+  setupAnswerSheet(ss, '買取大吉');
+
+  SpreadsheetApp.flush();
+  Logger.log('スプレッドシートの初期セットアップが完了しました。');
+}
+
+/**
+ * スタッフマスタの構築
+ */
+function setupStaffMasterSheet(ss, webAppUrl) {
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.STAFF);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEETS.STAFF);
+  }
+
+  const headers = CONFIG.HEADERS.STAFF;
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    formatHeaderRow(sheet, '#1E3A8A');
+
+    const initialData = [
+      ['S001', '宮内 太郎', '整骨院', '宮内整骨院 本院', true],
+      ['S002', '山田 花子', '整骨院', '宮内整骨院 駅前院', true],
+      ['D001', '佐藤 一郎', '買取大吉', '買取大吉 中央店', true],
+      ['D002', '鈴木 次郎', '買取大吉', '買取大吉 駅前店', true]
+    ];
+    sheet.getRange(2, 1, initialData.length, initialData[0].length).setValues(initialData);
+
+    const urlBase = webAppUrl || 'https://script.google.com/macros/s/★YOUR_DEPLOY_ID★/exec';
+    for (let r = 2; r <= initialData.length + 1; r++) {
+      sheet.getRange(r, 6).setFormula(`=IF(ISBLANK(A${r}), "", "${urlBase}?id=" & A${r})`);
+    }
+
+    sheet.getRange(1, 1, sheet.getMaxRows(), 1).setNumberFormat('@');
+    sheet.setFrozenRows(1);
+    sheet.autoResizeColumns(1, headers.length);
+  }
+}
+
+/**
+ * 設定_項目マスタの構築（8列構成）
+ * 列順: ['事業区分', '入力項目キー', '項目表示名', '選択肢テキスト', '表示順', '未提案トリガーフラグ', '金額入力トリガーフラグ', '有効フラグ']
+ */
+function setupItemMasterSheet(ss) {
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.ITEMS);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEETS.ITEMS);
+  }
+
+  const headers = CONFIG.HEADERS.ITEMS;
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    formatHeaderRow(sheet, '#065F46');
+
+    const initialItems = [
+      // 整骨院
+      ['整骨院', '次回予約', '次回予約', '獲得', 1, false, false, true],
+      ['整骨院', '次回予約', '次回予約', '提案したが未獲得', 2, false, false, true],
+      ['整骨院', '次回予約', '次回予約', '未提案', 3, true, false, true],
+
+      ['整骨院', '回数券・サブスク', '回数券・サブスク', '獲得', 1, false, false, true],
+      ['整骨院', '回数券・サブスク', '回数券・サブスク', '提案したが未獲得', 2, false, false, true],
+      ['整骨院', '回数券・サブスク', '回数券・サブスク', '未提案', 3, true, false, true],
+
+      ['整骨院', '追加提案', '追加提案', '獲得', 1, false, false, true],
+      ['整骨院', '追加提案', '追加提案', '提案したが未獲得', 2, false, false, true],
+      ['整骨院', '追加提案', '追加提案', '未提案', 3, true, false, true],
+
+      ['整骨院', '口コミ', '口コミ', '獲得', 1, false, false, true],
+      ['整骨院', '口コミ', '口コミ', '依頼したが未投稿', 2, false, false, true],
+      ['整骨院', '口コミ', '口コミ', '未提案', 3, true, false, true],
+
+      // 買取大吉
+      ['買取大吉', '来店・査定', '来店・査定', '査定完了', 1, false, false, true],
+      ['買取大吉', '来店・査定', '来店・査定', '相談・相場確認のみ', 2, false, false, true],
+
+      ['買取大吉', '提案・成約', '提案・成約', '成約', 1, false, true, true],
+      ['買取大吉', '提案・成約', '提案・成約', '提案したが不成立', 2, false, false, true],
+      ['買取大吉', '提案・成約', '提案・成約', '未提案', 3, true, false, true],
+
+      ['買取大吉', '口コミ', '口コミ', '獲得', 1, false, false, true],
+      ['買取大吉', '口コミ', '口コミ', '依頼したが未投稿', 2, false, false, true],
+      ['買取大吉', '口コミ', '口コミ', '未提案', 3, true, false, true]
+    ];
+
+    sheet.getRange(2, 1, initialItems.length, headers.length).setValues(initialItems);
+    sheet.setFrozenRows(1);
+    sheet.autoResizeColumns(1, headers.length);
+  }
+}
+
+/**
+ * 理由マスタの構築（5列構成）
+ * 列順: ['事業区分', '入力項目キー', '未提案理由', '表示順', '有効フラグ']
+ */
+function setupReasonMasterSheet(ss) {
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.REASONS);
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEETS.REASONS);
+  }
+
+  const headers = CONFIG.HEADERS.REASONS;
+  if (sheet.getLastRow() === 0) {
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+    formatHeaderRow(sheet, '#7C2D12');
+
+    const commonSeikotsuReasons = [
+      '時間不足・混雑',
+      '患者都合（急ぎ）',
+      '症状・タイミング不適合',
+      '信頼関係構築中',
+      'その他'
+    ];
+
+    const initialReasons = [];
+
+    // 整骨院：次回予約、回数券・サブスク、追加提案、口コミ
+    const seikotsuKeys = ['次回予約', '回数券・サブスク', '追加提案', '口コミ'];
+    seikotsuKeys.forEach(key => {
+      commonSeikotsuReasons.forEach((text, idx) => {
+        initialReasons.push(['整骨院', key, text, idx + 1, true]);
+      });
+    });
+
+    // 買取大吉：提案・成約
+    const daikichiSeiyakuReasons = [
+      '希望額と相場の大幅な乖離',
+      '他店比較・検討持ち帰り',
+      '本人確認書類等の不備',
+      '査定のみ希望・売却意思なし',
+      'その他'
+    ];
+    daikichiSeiyakuReasons.forEach((text, idx) => {
+      initialReasons.push(['買取大吉', '提案・成約', text, idx + 1, true]);
+    });
+
+    // 買取大吉：口コミ
+    const daikichiKuchikomiReasons = [
+      '時間不足・急ぎ',
+      'Googleアカウント未所持',
+      '操作困難・スマホ不慣れ',
+      'その他'
+    ];
+    daikichiKuchikomiReasons.forEach((text, idx) => {
+      initialReasons.push(['買取大吉', '口コミ', text, idx + 1, true]);
+    });
+
+    sheet.getRange(2, 1, initialReasons.length, headers.length).setValues(initialReasons);
+    sheet.setFrozenRows(1);
+    sheet.autoResizeColumns(1, headers.length);
+  }
+}
+
+/**
+ * 回答シートの構築（DeveloperMetadataは一切使用せず、新ヘッダー構成で構築）
+ */
+function setupAnswerSheet(ss, businessType) {
+  const sheetName = '回答_' + businessType;
+  let sheet = ss.getSheetByName(sheetName);
+  if (!sheet) {
+    sheet = ss.insertSheet(sheetName);
+  }
+
+  if (sheet.getLastRow() === 0) {
+    const headers = businessType === '整骨院'
+      ? [
+          'タイムスタンプ',
+          '対応日',
+          'スタッフID',
+          'スタッフ名',
+          '店舗名',
+          '次回予約',
+          '次回予約_未提案理由',
+          '回数券・サブスク',
+          '回数券・サブスク_未提案理由',
+          '追加提案',
+          '追加提案_未提案理由',
+          '口コミ',
+          '口コミ_未提案理由',
+          '送信ID'
+        ]
+      : [
+          'タイムスタンプ',
+          '対応日',
+          'スタッフID',
+          'スタッフ名',
+          '店舗名',
+          '来店・査定',
+          '提案・成約',
+          '提案・成約_未提案理由',
+          '買取金額',
+          '口コミ',
+          '口コミ_未提案理由',
+          '送信ID'
+        ];
+
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+
+    const headerBg = businessType === '整骨院' ? '#2563EB' : '#D97706';
+    formatHeaderRow(sheet, headerBg);
+
+    sheet.setFrozenRows(1);
+    sheet.autoResizeColumns(1, headers.length);
+  }
+}
+
+function formatHeaderRow(sheet, bgColor) {
+  const headerRange = sheet.getRange(1, 1, 1, sheet.getLastColumn());
+  headerRange.setBackground(bgColor);
+  headerRange.setFontColor('#FFFFFF');
+  headerRange.setFontWeight('bold');
+  headerRange.setHorizontalAlignment('center');
+  headerRange.setVerticalAlignment('middle');
+  sheet.setRowHeight(1, 35);
+}
+
+function updateStaffUrls() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const staffList = loadStaffList_(ss, false);
+  saveStaffList_(ss, staffList);
+  Logger.log('スタッフマスタの専用URLを本番URLに一括更新しました。');
+}
+
+================================================================================
+[FILE 9/16] gas\シート操作.js
+================================================================================
+/**
+ * 接客実績入力Webアプリケーション
+ * データアクセス層（スプレッドシート読み書き・ヘッダー同期）
+ */
+
+/**
+ * スタッフマスタ一覧の取得
+ * @param {Spreadsheet} ss 
+ * @param {boolean} activeOnly 有効スタッフのみ取得するか
+ * @return {Array<Object>}
+ */
+function loadStaffList_(ss, activeOnly = false) {
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.STAFF);
+  if (!sheet) return [];
+
+  const webAppUrl = getWebAppUrl_();
+  const data = sheet.getDataRange().getValues();
+  const staffList = [];
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const id = String(row[0] || '').trim();
+    if (!id) continue;
+
+    const isActive = toBool_(row[4], true);
+    if (activeOnly && !isActive) continue;
+
+    // 専用URL: シートの文字列または動的生成
+    let url = String(row[5] || '').trim();
+    if (!url && webAppUrl) {
+      url = `${webAppUrl}?id=${encodeURIComponent(id)}`;
+    }
+
+    staffList.push({
+      id: id,
+      name: String(row[1] || '').trim(),
+      businessType: String(row[2] || '').trim(),
+      storeName: String(row[3] || '').trim(),
+      isActive: isActive,
+      url: url
+    });
+  }
+  return staffList;
+}
+
+/**
+ * 指定IDのスタッフを取得・検証
+ * @param {Spreadsheet} ss 
+ * @param {string} staffId 
+ * @return {Object|null}
+ */
+function findStaffById_(ss, staffId) {
+  if (!staffId) return null;
+  const allStaff = loadStaffList_(ss, false);
+  return allStaff.find(st => st.id === String(staffId).trim()) || null;
+}
+
+/**
+ * スタッフマスタの一括保存
+ * @param {Spreadsheet} ss 
+ * @param {Array<Object>} staffList 
+ */
+function saveStaffList_(ss, staffList) {
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.STAFF);
+  const headers = CONFIG.HEADERS.STAFF;
+
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEETS.STAFF);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+
+  const webAppUrl = getWebAppUrl_();
+  const rows = [headers];
+
+  staffList.forEach((st) => {
+    const id = String(st.id || '').trim();
+    if (!id) return;
+    if (!/^[A-Za-z0-9]+$/.test(id)) {
+      throw new Error(`スタッフID「${id}」は無効です。半角英数字のみ使用できます。`);
+    }
+
+    const name = String(st.name || '').trim();
+    const bType = String(st.businessType || '').trim();
+    const store = String(st.storeName || '').trim();
+    const isActive = st.isActive !== false;
+
+    const r = rows.length + 1;
+    const formula = webAppUrl 
+      ? `=IF(ISBLANK(A${r}), "", "${webAppUrl}?id=" & A${r})`
+      : (st.url || '');
+
+    rows.push([id, name, bType, store, isActive, formula]);
+  });
+
+  // A列を書式なしテキストに設定してゼロ落ちを防止
+  sheet.getRange(1, 1, Math.max(sheet.getMaxRows(), rows.length), 1).setNumberFormat('@');
+  overwriteSheet_(sheet, rows, headers.length);
+}
+
+/**
+ * 設定_項目マスタの読み込み（8列構成対応）
+ * 列順: ['事業区分', '入力項目キー', '項目表示名', '選択肢テキスト', '表示順', '未提案トリガーフラグ', '金額入力トリガーフラグ', '有効フラグ']
+ * @param {Spreadsheet} ss 
+ * @param {Object} options { businessType: string|null, includeInactive: boolean }
+ * @return {Object} { [businessType]: Array<Item> }
+ */
+function loadItems_(ss, options = {}) {
+  const { businessType = null, includeInactive = false } = options;
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.ITEMS);
+  const result = {};
+  CONFIG.BUSINESS_TYPES.forEach(bt => { result[bt] = []; });
+
+  if (!sheet) return result;
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return result;
+
+  const headers = data[0].map(h => String(h || '').trim());
+  const idxBt = headers.indexOf('事業区分') !== -1 ? headers.indexOf('事業区分') : 0;
+  const idxKey = headers.indexOf('入力項目キー') !== -1 ? headers.indexOf('入力項目キー') : 1;
+  const idxLabel = headers.indexOf('項目表示名') !== -1 ? headers.indexOf('項目表示名') : 2;
+  const idxOptText = headers.indexOf('選択肢テキスト') !== -1 ? headers.indexOf('選択肢テキスト') : 3;
+  const idxOrder = headers.indexOf('表示順') !== -1 ? headers.indexOf('表示順') : (headers.indexOf('選択肢表示順') !== -1 ? headers.indexOf('選択肢表示順') : 4);
+  const idxReason = headers.indexOf('未提案トリガーフラグ') !== -1 ? headers.indexOf('未提案トリガーフラグ') : (headers.indexOf('未提案トリガー') !== -1 ? headers.indexOf('未提案トリガー') : 5);
+  const idxAmount = headers.indexOf('金額入力トリガーフラグ') !== -1 ? headers.indexOf('金額入力トリガーフラグ') : (headers.indexOf('金額入力トリガー') !== -1 ? headers.indexOf('金額入力トリガー') : 6);
+  const idxActive = headers.indexOf('有効フラグ') !== -1 ? headers.indexOf('有効フラグ') : 7;
+
+  const tempMap = {};
+  const orderTracker = {};
+  CONFIG.BUSINESS_TYPES.forEach(bt => {
+    tempMap[bt] = {};
+    orderTracker[bt] = [];
+  });
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const bt = String(row[idxBt] || '').trim();
+    if (businessType && bt !== businessType) continue;
+    if (!CONFIG.BUSINESS_TYPES.includes(bt)) continue;
+
+    const key = String(row[idxKey] || '').trim();
+    if (!bt || !key) continue;
+
+    const optText = String(row[idxOptText] || '').trim();
+    if (!optText) continue; // 選択肢テキストが空の行はスキップ
+
+    const isActive = toBool_(row[idxActive], true);
+    if (!includeInactive && !isActive) continue;
+
+    const label = String(row[idxLabel] || '').trim();
+    const optOrder = Number(row[idxOrder]) || 0;
+    const isReasonTrigger = toBool_(row[idxReason], false);
+    // 整骨院では金額トリガーを強制無効化
+    const isAmountTrigger = (bt === '整骨院') ? false : toBool_(row[idxAmount], false);
+
+    if (!tempMap[bt][key]) {
+      orderTracker[bt].push(key);
+      tempMap[bt][key] = {
+        key: key,
+        label: label || key,
+        originalLabel: label || key,
+        order: orderTracker[bt].length,
+        isActive: isActive,
+        options: []
+      };
+    } else {
+      if (!isActive) tempMap[bt][key].isActive = false;
+      if (label && !tempMap[bt][key].label) tempMap[bt][key].label = label;
+    }
+
+    tempMap[bt][key].options.push({
+      text: optText,
+      order: optOrder || (tempMap[bt][key].options.length + 1),
+      isReasonTrigger: isReasonTrigger,
+      isAmountTrigger: isAmountTrigger
+    });
+  }
+
+  CONFIG.BUSINESS_TYPES.forEach(bt => {
+    result[bt] = orderTracker[bt].map((key, idx) => {
+      const item = tempMap[bt][key];
+      item.order = idx + 1;
+      item.options.sort((a, b) => a.order - b.order);
+      return item;
+    });
+  });
+
+  return result;
+}
+
+/**
+ * 項目マスタの保存（8列構成で書き戻し、他事業区分のデータを維持して安全に上書き）
+ * @param {Spreadsheet} ss 
+ * @param {string} targetBusinessType 
+ * @param {Array<Object>} items 
+ */
+function saveItems_(ss, targetBusinessType, items) {
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.ITEMS);
+  const headers = CONFIG.HEADERS.ITEMS;
+
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEETS.ITEMS);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+
+  const existingData = sheet.getDataRange().getValues();
+  const otherRows = [];
+
+  if (existingData.length > 1) {
+    const existingHeaders = existingData[0].map(h => String(h || '').trim());
+    const idxBt = existingHeaders.indexOf('事業区分') !== -1 ? existingHeaders.indexOf('事業区分') : 0;
+    const idxKey = existingHeaders.indexOf('入力項目キー') !== -1 ? existingHeaders.indexOf('入力項目キー') : 1;
+    const idxLabel = existingHeaders.indexOf('項目表示名') !== -1 ? existingHeaders.indexOf('項目表示名') : 2;
+    const idxOptText = existingHeaders.indexOf('選択肢テキスト') !== -1 ? existingHeaders.indexOf('選択肢テキスト') : 3;
+    const idxOrder = existingHeaders.indexOf('表示順') !== -1 ? existingHeaders.indexOf('表示順') : (existingHeaders.indexOf('選択肢表示順') !== -1 ? existingHeaders.indexOf('選択肢表示順') : 4);
+    const idxReason = existingHeaders.indexOf('未提案トリガーフラグ') !== -1 ? existingHeaders.indexOf('未提案トリガーフラグ') : 5;
+    const idxAmount = existingHeaders.indexOf('金額入力トリガーフラグ') !== -1 ? existingHeaders.indexOf('金額入力トリガーフラグ') : 6;
+    const idxActive = existingHeaders.indexOf('有効フラグ') !== -1 ? existingHeaders.indexOf('有効フラグ') : 7;
+
+    for (let i = 1; i < existingData.length; i++) {
+      const row = existingData[i];
+      const bt = String(row[idxBt] || '').trim();
+      if (bt && bt !== targetBusinessType) {
+        otherRows.push([
+          bt,
+          String(row[idxKey] || '').trim(),
+          String(row[idxLabel] || '').trim(),
+          String(row[idxOptText] || '').trim(),
+          Number(row[idxOrder]) || 1,
+          toBool_(row[idxReason], false),
+          bt === '整骨院' ? false : toBool_(row[idxAmount], false),
+          toBool_(row[idxActive], true)
+        ]);
+      }
+    }
+  }
+
+  const newTargetRows = [];
+  items.forEach((item) => {
+    const itemKey = String(item.key || '').trim();
+    const itemLabel = String(item.label || itemKey).trim();
+    const isActive = item.isActive !== false;
+    const options = Array.isArray(item.options) && item.options.length > 0 
+      ? item.options 
+      : [{ text: '未設定', order: 1, isReasonTrigger: false, isAmountTrigger: false }];
+
+    options.forEach((opt, optIdx) => {
+      const optText = String(opt.text || '').trim();
+      if (!optText) return;
+      const optOrder = Number(opt.order) || (optIdx + 1);
+      const isReason = toBool_(opt.isReasonTrigger, false);
+      const isAmount = targetBusinessType === '整骨院' ? false : toBool_(opt.isAmountTrigger, false);
+
+      newTargetRows.push([
+        targetBusinessType,
+        itemKey,
+        itemLabel,
+        optText,
+        optOrder,
+        isReason,
+        isAmount,
+        isActive
+      ]);
+    });
+  });
+
+  const allRows = [headers, ...otherRows, ...newTargetRows];
+  overwriteSheet_(sheet, allRows, headers.length);
+}
+
+/**
+ * 理由マスタの読み込み（5列構成対応）
+ * 列構成: ['事業区分', '入力項目キー', '未提案理由', '表示順', '有効フラグ']
+ * 返却形式: { [businessType]: { [itemKey]: Array<Reason> } }
+ * @param {Spreadsheet} ss 
+ * @param {Object} options { businessType: string|null, includeInactive: boolean }
+ * @return {Object}
+ */
+function loadReasons_(ss, options = {}) {
+  const { businessType = null, includeInactive = false } = options;
+  const sheet = ss.getSheetByName(CONFIG.SHEETS.REASONS);
+  const result = {};
+  CONFIG.BUSINESS_TYPES.forEach(bt => { result[bt] = {}; });
+
+  if (!sheet) return result;
+
+  const data = sheet.getDataRange().getValues();
+  if (data.length <= 1) return result;
+
+  const headers = data[0].map(h => String(h || '').trim());
+  const idxBt = headers.indexOf('事業区分') !== -1 ? headers.indexOf('事業区分') : 0;
+  const idxKey = headers.indexOf('入力項目キー') !== -1 ? headers.indexOf('入力項目キー') : 1;
+  const idxReason = headers.indexOf('未提案理由') !== -1 ? headers.indexOf('未提案理由') : 2;
+  const idxOrder = headers.indexOf('表示順') !== -1 ? headers.indexOf('表示順') : 3;
+  const idxActive = headers.indexOf('有効フラグ') !== -1 ? headers.indexOf('有効フラグ') : 4;
+
+  for (let i = 1; i < data.length; i++) {
+    const row = data[i];
+    const bt = String(row[idxBt] || '').trim();
+    if (businessType && bt !== businessType) continue;
+    if (!CONFIG.BUSINESS_TYPES.includes(bt)) continue;
+
+    const itemKey = String(row[idxKey] || '').trim();
+    const rText = String(row[idxReason] || '').trim();
+    if (!bt || !itemKey || !rText) continue;
+
+    const isActive = toBool_(row[idxActive], true);
+    if (!includeInactive && !isActive) continue;
+
+    const order = Number(row[idxOrder]) || 0;
+
+    if (!result[bt][itemKey]) {
+      result[bt][itemKey] = [];
+    }
+
+    result[bt][itemKey].push({
+      text: rText,
+      order: order,
+      isActive: isActive
+    });
+  }
+
+  CONFIG.BUSINESS_TYPES.forEach(bt => {
+    if (result[bt]) {
+      Object.keys(result[bt]).forEach(key => {
+        result[bt][key].sort((a, b) => a.order - b.order);
+      });
+    }
+  });
+
+  return result;
+}
+
+/**
+ * 理由マスタの保存（5列構成対応、他事業区分のデータを維持して一括保存）
+ * @param {Spreadsheet} ss 
+ * @param {string} targetBusinessType 
+ * @param {Object} reasonsMap { [itemKey]: Array<Reason> }
+ */
+function saveReasons_(ss, targetBusinessType, reasonsMap) {
+  let sheet = ss.getSheetByName(CONFIG.SHEETS.REASONS);
+  const headers = CONFIG.HEADERS.REASONS;
+
+  if (!sheet) {
+    sheet = ss.insertSheet(CONFIG.SHEETS.REASONS);
+    sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
+  }
+
+  const existingData = sheet.getDataRange().getValues();
+  const otherRows = [];
+
+  if (existingData.length > 1) {
+    const existingHeaders = existingData[0].map(h => String(h || '').trim());
+    const idxBt = existingHeaders.indexOf('事業区分') !== -1 ? existingHeaders.indexOf('事業区分') : 0;
+    const idxKey = existingHeaders.indexOf('入力項目キー') !== -1 ? existingHeaders.indexOf('入力項目キー') : 1;
+    const idxReason = existingHeaders.indexOf('未提案理由') !== -1 ? existingHeaders.indexOf('未提案理由') : 2;
+    const idxOrder = existingHeaders.indexOf('表示順') !== -1 ? existingHeaders.indexOf('表示順') : 3;
+    const idxActive = existingHeaders.indexOf('有効フラグ') !== -1 ? existingHeaders.indexOf('有効フラグ') : 4;
+
+    for (let i = 1; i < existingData.length; i++) {
+      const row = existingData[i];
+      const bt = String(row[idxBt] || '').trim();
+      if (bt && bt !== targetBusinessType) {
+        otherRows.push([
+          bt,
+          String(row[idxKey] || '').trim(),
+          String(row[idxReason] || '').trim(),
+          Number(row[idxOrder]) || 1,
+          toBool_(row[idxActive], true)
+        ]);
+      }
+    }
+  }
+
+  const newTargetRows = [];
+  if (reasonsMap && typeof reasonsMap === 'object') {
+    Object.keys(reasonsMap).forEach(itemKey => {
+      const reasonList = reasonsMap[itemKey];
+      if (Array.isArray(reasonList)) {
+        reasonList.forEach((r, idx) => {
+          const text = String(r.text || '').trim();
+          if (!text) return;
+          const order = Number(r.order) || (idx + 1);
+          const isActive = r.isActive !== false;
+
+          newTargetRows.push([targetBusinessType, itemKey, text, order, isActive]);
+        });
+      }
+    });
+  }
+
+  const allRows = [headers, ...otherRows, ...newTargetRows];
+  overwriteSheet_(sheet, allRows, headers.length);
+}
+
+/**
+ * 期待される回答シートのヘッダー列配列を算出
+ * @param {string} businessType 
+ * @param {Array<Object>} items 
+ * @return {Array<string>}
+ */
+function getExpectedAnswerHeaders_(businessType, items) {
+  const headers = ['タイムスタンプ', '対応日', 'スタッフID', 'スタッフ名', '店舗名'];
+  const activeItems = (items || []).filter(item => item.isActive !== false);
+
+  activeItems.forEach(item => {
+    const itemLabel = String(item.label || item.key).trim();
+    headers.push(itemLabel);
+
+    const hasReason = (item.options || []).some(opt => toBool_(opt.isReasonTrigger, false));
+    if (hasReason) {
+      headers.push(`${itemLabel}_未提案理由`);
+    }
+
+    if (businessType === '買取大吉') {
+      const hasAmount = (item.options || []).some(opt => toBool_(opt.isAmountTrigger, false));
+      if (hasAmount) {
+        headers.push('買取金額');
+      }
+    }
+  });
+
+  headers.push('送信ID');
+  return headers;
+}
+
+/**
+ * 回答シートのヘッダー動的同期（DeveloperMetadataを使わず安全に同期）
+ * @param {Spreadsheet} ss 
+ * @param {string} businessType 
+ * @param {Array<Object>} items 
+ */
+function syncAnswerSheetHeaders_(ss, businessType, items) {
+  const sheetName = '回答_' + businessType;
+  let answerSheet = ss.getSheetByName(sheetName);
+  if (!answerSheet) {
+    answerSheet = ss.insertSheet(sheetName);
+  }
+
+  const expectedHeaders = getExpectedAnswerHeaders_(businessType, items);
+  const theme = CONFIG.THEMES[businessType] || {};
+  const headerBg = theme.answerHeaderBg || '#2563EB';
+
+  const lastRow = answerSheet.getLastRow();
+  const lastCol = answerSheet.getLastColumn();
+
+  if (lastCol === 0 || lastRow <= 1) {
+    // 既存回答データがない場合は完全新構成でヘッダーを設定
+    if (lastCol > expectedHeaders.length) {
+      answerSheet.getRange(1, expectedHeaders.length + 1, 1, lastCol - expectedHeaders.length).clearContent();
+    }
+    answerSheet.getRange(1, 1, 1, expectedHeaders.length).setValues([expectedHeaders]);
+
+    const range = answerSheet.getRange(1, 1, 1, expectedHeaders.length);
+    range.setBackground(headerBg);
+    range.setFontColor('#FFFFFF');
+    range.setFontWeight('bold');
+    range.setHorizontalAlignment('center');
+    range.setVerticalAlignment('middle');
+    answerSheet.setRowHeight(1, 35);
+    answerSheet.setFrozenRows(1);
+    try {
+      answerSheet.autoResizeColumns(1, expectedHeaders.length);
+    } catch (e) {}
+    return;
+  }
+
+  // 既存回答データがある場合：
+  const existingHeaders = answerSheet.getRange(1, 1, 1, lastCol).getValues()[0].map(h => String(h || '').trim());
+
+  // 0. 「対応日」列が未存在の場合、タイムスタンプの直後（第2列）に列挿入して安全に同期
+  if (!existingHeaders.includes('対応日')) {
+    const tsIdx = existingHeaders.indexOf('タイムスタンプ');
+    const insertAfterCol = tsIdx !== -1 ? (tsIdx + 1) : 1;
+    answerSheet.insertColumnAfter(insertAfterCol);
+    const dateCell = answerSheet.getRange(1, insertAfterCol + 1);
+    dateCell.setValue('対応日');
+    dateCell.setBackground(headerBg);
+    dateCell.setFontColor('#FFFFFF');
+    dateCell.setFontWeight('bold');
+    dateCell.setHorizontalAlignment('center');
+    dateCell.setVerticalAlignment('middle');
+    existingHeaders.splice(insertAfterCol, 0, '対応日');
+  }
+
+  // 1. 既存項目名の変更（originalLabel -> label）を反映
+  items.forEach(item => {
+    if (item.originalLabel && item.originalLabel !== item.label) {
+      const oldIdx = existingHeaders.indexOf(item.originalLabel);
+      if (oldIdx !== -1) {
+        answerSheet.getRange(1, oldIdx + 1).setValue(item.label);
+        existingHeaders[oldIdx] = item.label;
+
+        const oldReasonIdx = existingHeaders.indexOf(`${item.originalLabel}_未提案理由`);
+        if (oldReasonIdx !== -1) {
+          answerSheet.getRange(1, oldReasonIdx + 1).setValue(`${item.label}_未提案理由`);
+          existingHeaders[oldReasonIdx] = `${item.label}_未提案理由`;
+        }
+      }
+    }
+  });
+
+  // 2. 期待される列が存在しなければ末尾に追加
+  expectedHeaders.forEach(expHeader => {
+    if (!existingHeaders.includes(expHeader)) {
+      const newCol = answerSheet.getLastColumn() + 1;
+      const cell = answerSheet.getRange(1, newCol);
+      cell.setValue(expHeader);
+      cell.setBackground(headerBg);
+      cell.setFontColor('#FFFFFF');
+      cell.setFontWeight('bold');
+      cell.setHorizontalAlignment('center');
+      cell.setVerticalAlignment('middle');
+      existingHeaders.push(expHeader);
+    }
+  });
+
+  try {
+    answerSheet.autoResizeColumns(1, answerSheet.getLastColumn());
+  } catch (e) {}
+}
+
+
+================================================================================
+[FILE 10/16] gas\モーダル_完了通知.html
+================================================================================
+<!-- 登録完了通知モーダル -->
+<div 
+  v-if="isCompleted" 
+  class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm transition-all duration-300"
+>
+  <div 
+    class="bg-white rounded-3xl p-6 sm:p-8 max-w-sm w-full shadow-2xl text-center transform transition-all duration-300 scale-100 animate-bounce-short border border-slate-100"
+  >
+    <!-- アニメーション付き成功チェックアイコン -->
+    <div class="relative w-20 h-20 mx-auto mb-4 flex items-center justify-center">
+      <div class="absolute inset-0 bg-emerald-100 rounded-full animate-ping opacity-75"></div>
+      <div class="relative w-20 h-20 bg-gradient-to-tr from-emerald-600 to-teal-400 rounded-full flex items-center justify-center shadow-lg shadow-emerald-500/30">
+        <svg class="w-10 h-10 text-white stroke-[3] animate-draw" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+        </svg>
+      </div>
+    </div>
+
+    <h3 class="text-xl font-bold text-slate-800 mb-1">{{ modalTitle || '登録が完了しました！' }}</h3>
+    <p class="text-sm text-slate-500 mb-6" v-html="modalMessage || '接客実績を正常に記録しました。<br>お疲れ様でした！'"></p>
+
+    <!-- 自動カウントダウンプログレスバー -->
+    <div class="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden mb-3">
+      <div class="bg-emerald-500 h-full rounded-full transition-all duration-1500 ease-linear w-full animate-shrink"></div>
+    </div>
+    <span class="text-xs text-slate-400 font-medium">次回入力画面へ自動で切り替わります</span>
+  </div>
+</div>
+
+<style>
+@keyframes shrink {
+  from { width: 100%; }
+  to { width: 0%; }
+}
+.animate-shrink {
+  animation: shrink 1.5s linear forwards;
+}
+
+@keyframes bounceShort {
+  0% { transform: scale(0.9); opacity: 0; }
+  60% { transform: scale(1.03); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-bounce-short {
+  animation: bounceShort 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+</style>
+
+
+================================================================================
+[FILE 11/16] gas\ロジック_管理.html
+================================================================================
+<script>
+/**
+ * 接客実績入力 マスタ管理 ロジックコンポーザブル
+ * Vue 3 Composition API
+ */
+
+/**
+ * google.script.run の Promise 化ラッパー
+ */
+function callServer(funcName, ...args) {
+  return new Promise((resolve, reject) => {
+    if (!google || !google.script || !google.script.run) {
+      reject(new Error('google.script.run が利用できません。'));
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(reject)[funcName](...args);
+  });
+}
+
+const RESERVED_KEYS = ['timestamp', 'staffId', 'staffName', 'storeName', 'amount', 'reason', 'submissionId'];
+
+function useAdminManagement(initData) {
+  const { ref, reactive, computed, watch } = Vue;
+
+  const rawData = initData || {};
+  const businessTypes = ref(rawData.businessTypes || ['整骨院', '買取大吉']);
+  const webAppUrl = ref(rawData.webAppUrl || '');
+
+  const activeBusinessType = ref('整骨院');
+  const activeTab = ref('items');
+  const isSubmitting = ref(false);
+
+  const toast = reactive({
+    show: false,
+    message: '',
+    type: 'success',
+    timeoutId: null
+  });
+
+  const showToast = (message, type = 'success', duration = 3000) => {
+    if (toast.timeoutId) clearTimeout(toast.timeoutId);
+    toast.message = message;
+    toast.type = type;
+    toast.show = true;
+    toast.timeoutId = setTimeout(() => {
+      toast.show = false;
+    }, duration);
+  };
+
+  // 1. 項目マスタ（8列構成）
+  const items = reactive({
+    整骨院: [],
+    買取大吉: []
+  });
+
+  if (rawData.items) {
+    businessTypes.value.forEach(bt => {
+      items[bt] = (rawData.items[bt] || []).map((item, idx) => ({
+        key: item.key || `item_${idx}`,
+        label: item.label || item.key,
+        originalLabel: item.originalLabel || item.label || item.key,
+        order: item.order || (idx + 1),
+        isActive: item.isActive !== false,
+        isOpen: idx === 0,
+        options: (item.options || []).map((opt, oIdx) => ({
+          text: opt.text || '',
+          order: opt.order || (oIdx + 1),
+          isReasonTrigger: Boolean(opt.isReasonTrigger),
+          isAmountTrigger: bt === '整骨院' ? false : Boolean(opt.isAmountTrigger)
+        }))
+      }));
+    });
+  }
+
+  const currentItems = computed(() => items[activeBusinessType.value] || []);
+
+  const toggleItemAccordion = (item) => {
+    item.isOpen = !item.isOpen;
+  };
+
+  const moveItem = (index, direction) => {
+    const list = items[activeBusinessType.value];
+    const targetIdx = index + direction;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+
+    const temp = list[index];
+    list[index] = list[targetIdx];
+    list[targetIdx] = temp;
+
+    list.forEach((it, i) => { it.order = i + 1; });
+  };
+
+  const toggleItemActive = (item) => {
+    item.isActive = !item.isActive;
+  };
+
+  const addOptionToItem = (item) => {
+    item.options.push({
+      text: '',
+      order: item.options.length + 1,
+      isReasonTrigger: false,
+      isAmountTrigger: false
+    });
+    item.isOpen = true;
+  };
+
+  const removeOptionFromItem = (item, optIndex) => {
+    if (item.options.length <= 1) {
+      showToast('項目には最低1つの選択肢が必要です。', 'error');
+      return;
+    }
+    item.options.splice(optIndex, 1);
+    item.options.forEach((opt, idx) => { opt.order = idx + 1; });
+  };
+
+  const moveOption = (item, optIndex, direction) => {
+    const targetIdx = optIndex + direction;
+    if (targetIdx < 0 || targetIdx >= item.options.length) return;
+
+    const temp = item.options[optIndex];
+    item.options[optIndex] = item.options[targetIdx];
+    item.options[targetIdx] = temp;
+
+    item.options.forEach((opt, idx) => { opt.order = idx + 1; });
+  };
+
+  const showAddItemModal = ref(false);
+  const newItemForm = reactive({
+    key: '',
+    label: '',
+    optionsText: ''
+  });
+
+  const openAddItemModal = () => {
+    newItemForm.key = '';
+    newItemForm.label = '';
+    newItemForm.optionsText = activeBusinessType.value === '整骨院'
+      ? '獲得\n提案したが未獲得\n未提案'
+      : '成約\n提案したが不成立\n未提案';
+    showAddItemModal.value = true;
+  };
+
+  const submitAddItem = () => {
+    if (!newItemForm.label.trim()) {
+      showToast('項目表示名を入力してください。', 'error');
+      return;
+    }
+
+    const key = newItemForm.key.trim() || newItemForm.label.trim();
+
+    // 予約キーチェック
+    if (RESERVED_KEYS.includes(key)) {
+      showToast(`項目キー「${key}」はシステム予約語のため使用できません。別のキーを指定してください。`, 'error');
+      return;
+    }
+
+    const list = items[activeBusinessType.value];
+    if (list.some(it => it.key === key)) {
+      showToast(`項目キー「${key}」は既に存在します。別のキーを指定してください。`, 'error');
+      return;
+    }
+
+    // トリガー自動判別の厳格化（完全一致）
+    const opts = newItemForm.optionsText
+      .split('\n')
+      .map(t => t.trim())
+      .filter(t => t.length > 0)
+      .map((text, idx) => ({
+        text: text,
+        order: idx + 1,
+        isReasonTrigger: (text === '未提案'),
+        isAmountTrigger: (text === '成約' && activeBusinessType.value === '買取大吉')
+      }));
+
+    if (opts.length === 0) {
+      opts.push({ text: '完了', order: 1, isReasonTrigger: false, isAmountTrigger: false });
+    }
+
+    const newItem = {
+      key: key,
+      label: newItemForm.label.trim(),
+      originalLabel: '',
+      order: list.length + 1,
+      isActive: true,
+      isOpen: true,
+      options: opts
+    };
+
+    list.push(newItem);
+
+    // 理由マップにも空配列を用意
+    if (!reasons[activeBusinessType.value][key]) {
+      reasons[activeBusinessType.value][key] = [];
+    }
+
+    showAddItemModal.value = false;
+    showToast(`項目「${newItem.label}」を追加しました。変更を保存＆同期してください。`, 'info');
+  };
+
+  const saveItems = async () => {
+    if (isSubmitting.value) return;
+
+    const list = items[activeBusinessType.value];
+    if (list.length === 0) {
+      showToast('項目が1件もありません。', 'error');
+      return;
+    }
+
+    for (const it of list) {
+      if (!it.label.trim()) {
+        showToast('項目表示名が空の項目があります。', 'error');
+        return;
+      }
+      if (RESERVED_KEYS.includes(it.key)) {
+        showToast(`項目キー「${it.key}」はシステム予約語です。変更してください。`, 'error');
+        return;
+      }
+      if (it.isActive !== false && (!it.options || it.options.length === 0)) {
+        showToast(`項目「${it.label}」には少なくとも1つの選択肢が必要です。`, 'error');
+        return;
+      }
+      for (const opt of it.options) {
+        if (!opt.text.trim()) {
+          showToast(`項目「${it.label}」の中に空の選択肢テキストがあります。`, 'error');
+          return;
+        }
+      }
+    }
+
+    isSubmitting.value = true;
+    const payload = list.map((it, idx) => ({
+      key: it.key,
+      label: it.label,
+      originalLabel: it.originalLabel,
+      order: idx + 1,
+      isActive: it.isActive,
+      options: it.options.map((opt, oIdx) => ({
+        text: opt.text,
+        order: oIdx + 1,
+        isReasonTrigger: opt.isReasonTrigger,
+        isAmountTrigger: activeBusinessType.value === '整骨院' ? false : opt.isAmountTrigger
+      }))
+    }));
+
+    try {
+      const res = await callServer('saveItemMaster', activeBusinessType.value, payload);
+      isSubmitting.value = false;
+      if (res && res.success) {
+        list.forEach(it => { it.originalLabel = it.label; });
+        showToast(res.message || '項目設定を保存しました。', 'success');
+      } else {
+        showToast(res ? res.message : '保存に失敗しました。', 'error');
+      }
+    } catch (err) {
+      isSubmitting.value = false;
+      console.error('saveItemMaster Error:', err);
+      showToast('保存中にエラーが発生しました: ' + (err.message || '通信エラー'), 'error');
+    }
+  };
+
+  // 2. 理由マスタ（項目別マップ構造: { [businessType]: { [itemKey]: Array<Reason> } }）
+  const reasons = reactive({
+    整骨院: {},
+    買取大吉: {}
+  });
+
+  if (rawData.reasons) {
+    businessTypes.value.forEach(bt => {
+      const btMap = rawData.reasons[bt] || {};
+      reasons[bt] = {};
+      Object.keys(btMap).forEach(key => {
+        reasons[bt][key] = (btMap[key] || []).map((r, idx) => ({
+          text: r.text || '',
+          order: r.order || (idx + 1),
+          isActive: r.isActive !== false
+        }));
+      });
+    });
+  }
+
+  // 未提案トリガーを持つ項目一覧
+  const reasonEligibleItems = computed(() => {
+    return currentItems.value.filter(it => 
+      it.isActive !== false && (it.options || []).some(o => o.isReasonTrigger)
+    );
+  });
+
+  const selectedReasonItemKey = ref('');
+
+  // 選択肢トリガー項目が変わったら自動選択
+  watch(
+    [reasonEligibleItems, activeBusinessType],
+    () => {
+      const eligible = reasonEligibleItems.value;
+      if (eligible.length > 0) {
+        if (!eligible.some(it => it.key === selectedReasonItemKey.value)) {
+          selectedReasonItemKey.value = eligible[0].key;
+        }
+      } else {
+        selectedReasonItemKey.value = '';
+      }
+    },
+    { immediate: true }
+  );
+
+  const currentReasons = computed(() => {
+    const bt = activeBusinessType.value;
+    const key = selectedReasonItemKey.value;
+    if (!key) return [];
+    if (!reasons[bt][key]) {
+      reasons[bt][key] = [];
+    }
+    return reasons[bt][key];
+  });
+
+  const moveReason = (index, direction) => {
+    const bt = activeBusinessType.value;
+    const key = selectedReasonItemKey.value;
+    if (!key || !reasons[bt][key]) return;
+
+    const list = reasons[bt][key];
+    const targetIdx = index + direction;
+    if (targetIdx < 0 || targetIdx >= list.length) return;
+
+    const temp = list[index];
+    list[index] = list[targetIdx];
+    list[targetIdx] = temp;
+
+    list.forEach((r, idx) => { r.order = idx + 1; });
+  };
+
+  const addReason = () => {
+    const bt = activeBusinessType.value;
+    const key = selectedReasonItemKey.value;
+    if (!key) {
+      showToast('理由を追加する項目を選択してください。', 'error');
+      return;
+    }
+    if (!reasons[bt][key]) {
+      reasons[bt][key] = [];
+    }
+    reasons[bt][key].push({
+      text: '',
+      order: reasons[bt][key].length + 1,
+      isActive: true
+    });
+  };
+
+  const removeReason = (index) => {
+    const bt = activeBusinessType.value;
+    const key = selectedReasonItemKey.value;
+    if (!key || !reasons[bt][key]) return;
+
+    reasons[bt][key].splice(index, 1);
+    reasons[bt][key].forEach((r, idx) => { r.order = idx + 1; });
+  };
+
+  const toggleReasonActive = (r) => {
+    r.isActive = !r.isActive;
+  };
+
+  const saveReasons = async () => {
+    if (isSubmitting.value) return;
+
+    const bt = activeBusinessType.value;
+    const btReasonsMap = reasons[bt] || {};
+
+    // 入力検証
+    for (const key in btReasonsMap) {
+      const list = btReasonsMap[key];
+      if (Array.isArray(list)) {
+        for (const r of list) {
+          if (!r.text.trim()) {
+            showToast('未入力の理由テキストがあります。内容を入力するか削除してください。', 'error');
+            return;
+          }
+        }
+      }
+    }
+
+    isSubmitting.value = true;
+
+    // 全項目の理由データを一括構築
+    const payload = {};
+    Object.keys(btReasonsMap).forEach(key => {
+      payload[key] = (btReasonsMap[key] || []).map((r, idx) => ({
+        text: r.text.trim(),
+        order: idx + 1,
+        isActive: r.isActive !== false
+      }));
+    });
+
+    try {
+      const res = await callServer('saveReasonMaster', bt, payload);
+      isSubmitting.value = false;
+      if (res && res.success) {
+        showToast(res.message || '未提案理由を保存しました。', 'success');
+      } else {
+        showToast(res ? res.message : '保存に失敗しました。', 'error');
+      }
+    } catch (err) {
+      isSubmitting.value = false;
+      console.error('saveReasonMaster Error:', err);
+      showToast('保存中にエラーが発生しました: ' + (err.message || '通信エラー'), 'error');
+    }
+  };
+
+  // 3. スタッフマスタ
+  const staffList = ref((rawData.staffList || []).map(st => ({
+    id: st.id || '',
+    name: st.name || '',
+    businessType: st.businessType || '整骨院',
+    storeName: st.storeName || '',
+    isActive: st.isActive !== false,
+    url: st.url || ''
+  })));
+
+  const staffSearchQuery = ref('');
+  const staffFilterBusiness = ref('all');
+
+  const filteredStaffList = computed(() => {
+    return staffList.value.filter(st => {
+      if (staffFilterBusiness.value !== 'all' && st.businessType !== staffFilterBusiness.value) {
+        return false;
+      }
+      if (staffSearchQuery.value.trim()) {
+        const q = staffSearchQuery.value.toLowerCase().trim();
+        return (st.id || '').toLowerCase().includes(q) ||
+               (st.name || '').toLowerCase().includes(q) ||
+               (st.storeName || '').toLowerCase().includes(q);
+      }
+      return true;
+    });
+  });
+
+  const showStaffModal = ref(false);
+  const isEditingStaff = ref(false);
+  const staffForm = reactive({
+    id: '',
+    name: '',
+    businessType: '整骨院',
+    storeName: '',
+    isActive: true
+  });
+
+  const openAddStaffModal = () => {
+    isEditingStaff.value = false;
+    staffForm.id = '';
+    staffForm.name = '';
+    staffForm.businessType = activeBusinessType.value || '整骨院';
+    staffForm.storeName = '';
+    staffForm.isActive = true;
+    showStaffModal.value = true;
+  };
+
+  const openEditStaffModal = (st) => {
+    isEditingStaff.value = true;
+    staffForm.id = st.id;
+    staffForm.name = st.name;
+    staffForm.businessType = st.businessType;
+    staffForm.storeName = st.storeName;
+    staffForm.isActive = st.isActive;
+    showStaffModal.value = true;
+  };
+
+  const submitStaffModal = () => {
+    if (isSubmitting.value) {
+      showToast('現在処理中です。完了するまでお待ちください。', 'info');
+      return;
+    }
+
+    const id = staffForm.id.trim();
+    if (!id) {
+      showToast('スタッフIDを入力してください。', 'error');
+      return;
+    }
+    // スタッフIDの半角英数字チェック
+    if (!/^[A-Za-z0-9]+$/.test(id)) {
+      showToast('スタッフIDは半角英数字のみ有効です（記号・全角不可）。', 'error');
+      return;
+    }
+    if (!staffForm.name.trim()) {
+      showToast('スタッフ名を入力してください。', 'error');
+      return;
+    }
+
+    const previousList = JSON.parse(JSON.stringify(staffList.value));
+
+    if (isEditingStaff.value) {
+      const target = staffList.value.find(st => st.id === id);
+      if (target) {
+        target.name = staffForm.name.trim();
+        target.businessType = staffForm.businessType;
+        target.storeName = staffForm.storeName.trim();
+        target.isActive = staffForm.isActive;
+      }
+    } else {
+      if (staffList.value.some(st => st.id === id)) {
+        showToast(`スタッフID「${id}」は既に登録されています。`, 'error');
+        return;
+      }
+      staffList.value.unshift({
+        id: id,
+        name: staffForm.name.trim(),
+        businessType: staffForm.businessType,
+        storeName: staffForm.storeName.trim(),
+        isActive: staffForm.isActive,
+        url: ''
+      });
+    }
+
+    showStaffModal.value = false;
+    saveStaff(previousList);
+  };
+
+  const toggleStaffActive = (st) => {
+    if (isSubmitting.value) {
+      showToast('現在処理中です。完了するまでお待ちください。', 'info');
+      return;
+    }
+    const previousList = JSON.parse(JSON.stringify(staffList.value));
+    st.isActive = !st.isActive;
+    saveStaff(previousList);
+  };
+
+  const saveStaff = async (previousList = null) => {
+    if (isSubmitting.value) return;
+    isSubmitting.value = true;
+
+    const payload = staffList.value.map(st => ({
+      id: st.id,
+      name: st.name,
+      businessType: st.businessType,
+      storeName: st.storeName,
+      isActive: st.isActive,
+      url: st.url
+    }));
+
+    try {
+      const res = await callServer('saveStaffMaster', payload);
+      isSubmitting.value = false;
+
+      if (res && res.success) {
+        showToast(res.message || 'スタッフ情報を保存しました。', 'success');
+        // 最新URL・状態を再同期
+        const adminRes = await callServer('getAdminInitialData');
+        if (adminRes && adminRes.success && adminRes.data && Array.isArray(adminRes.data.staffList)) {
+          staffList.value = adminRes.data.staffList;
+        }
+      } else {
+        if (previousList) staffList.value = previousList;
+        showToast((res ? res.message : '保存に失敗しました。') + ' 変更前の状態に戻しました。', 'error');
+      }
+    } catch (err) {
+      isSubmitting.value = false;
+      console.error('saveStaffMaster Error:', err);
+      if (previousList) staffList.value = previousList;
+      showToast('保存中にエラーが発生しました: ' + (err.message || '通信エラー') + '。変更前の状態に戻しました。', 'error');
+    }
+  };
+
+  // URL コピー
+  const copiedStaffId = ref(null);
+  const copyStaffUrl = (st) => {
+    const url = st.url || '';
+    if (!url) {
+      showToast('コピー可能なURLがありません。設定をご確認ください。', 'error');
+      return;
+    }
+
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(() => {
+        copiedStaffId.value = st.id;
+        showToast(`「${st.name}」の専用URLをコピーしました！`, 'success');
+        setTimeout(() => { copiedStaffId.value = null; }, 2000);
+      }).catch(() => {
+        fallbackCopyTextToClipboard(url, st);
+      });
+    } else {
+      fallbackCopyTextToClipboard(url, st);
+    }
+  };
+
+  const fallbackCopyTextToClipboard = (text, st) => {
+    const textArea = document.createElement("textarea");
+    textArea.value = text;
+    textArea.style.position = "fixed";
+    textArea.style.top = "0";
+    textArea.style.left = "0";
+    textArea.style.opacity = "0";
+    document.body.appendChild(textArea);
+    textArea.focus();
+    textArea.select();
+    try {
+      document.execCommand('copy');
+      copiedStaffId.value = st.id;
+      showToast(`「${st.name}」の専用URLをコピーしました！`, 'success');
+      setTimeout(() => { copiedStaffId.value = null; }, 2000);
+    } catch (err) {
+      showToast('URLのコピーに失敗しました。', 'error');
+    }
+    document.body.removeChild(textArea);
+  };
+
+  return {
+    businessTypes,
+    webAppUrl,
+    activeBusinessType,
+    activeTab,
+    isSubmitting,
+    toast,
+    // 項目
+    items,
+    currentItems,
+    toggleItemAccordion,
+    moveItem,
+    toggleItemActive,
+    addOptionToItem,
+    removeOptionFromItem,
+    moveOption,
+    showAddItemModal,
+    newItemForm,
+    openAddItemModal,
+    submitAddItem,
+    saveItems,
+    // 理由
+    reasons,
+    reasonEligibleItems,
+    selectedReasonItemKey,
+    currentReasons,
+    moveReason,
+    addReason,
+    removeReason,
+    toggleReasonActive,
+    saveReasons,
+    // スタッフ
+    staffList,
+    filteredStaffList,
+    staffSearchQuery,
+    staffFilterBusiness,
+    showStaffModal,
+    isEditingStaff,
+    staffForm,
+    openAddStaffModal,
+    openEditStaffModal,
+    submitStaffModal,
+    toggleStaffActive,
+    saveStaff,
+    copiedStaffId,
+    copyStaffUrl
+  };
+}
+</script>
+
+
+================================================================================
+[FILE 12/16] gas\ロジック_接客実績.html
+================================================================================
+<script>
+/**
+ * 接客実績入力 ロジックコンポーザブル
+ * Vue 3 Composition API
+ */
+
+/**
+ * google.script.run の Promise 化ラッパー
+ */
+function callServer(funcName, ...args) {
+  return new Promise((resolve, reject) => {
+    if (!google || !google.script || !google.script.run) {
+      reject(new Error('google.script.run が利用できません。'));
+      return;
+    }
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(reject)[funcName](...args);
+  });
+}
+
+/**
+ * UUID 生成ヘルパー
+ */
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'sub_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+}
+
+function useCustomerService(initData) {
+  const { ref, reactive, computed } = Vue;
+
+  const raw = initData || {};
+  const staff = ref(raw.staff || {});
+  const fields = ref(raw.fields || []);
+  const reasonsByItem = ref(raw.reasonsByItem || {});
+
+  // タブ切り替え: 'single' (1件ずつ) | 'batch' (方式A: 複数行) | 'summary' (方式B: 日次集計)
+  const currentTab = ref('single');
+
+  // 完了通知モーダル用
+  const isCompleted = ref(false);
+  const modalTitle = ref('登録が完了しました！');
+  const modalMessage = ref('接客実績を正常に記録しました。<br>お疲れ様でした！');
+
+  // 日付ヘルパー
+  const getTodayIso = () => {
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = String(now.getMonth() + 1).padStart(2, '0');
+    const d = String(now.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
+
+  const todayIsoStr = getTodayIso();
+  const maxDateStr = todayIsoStr; // カレンダー未来日選択不可（max="当日"）
+
+  const todayStr = computed(() => {
+    return todayIsoStr.replace(/-/g, '/');
+  });
+
+  // ==========================================
+  // 【1件ずつ入力（既存）】用ステート・ロジック
+  // ==========================================
+  const submissionId = ref(generateUUID());
+  const answers = reactive({});
+  const reasons = reactive({});
+  (fields.value || []).forEach(field => {
+    answers[field.key] = '';
+    reasons[field.key] = '';
+  });
+
+  const amount = ref(null);
+  const errors = reactive({});
+  const isSubmitting = ref(false);
+  const serverErrorMessage = ref('');
+
+  const selectedOptions = computed(() => {
+    const map = {};
+    for (const field of fields.value) {
+      const selectedVal = answers[field.key];
+      if (selectedVal) {
+        const found = field.options.find(opt => opt.text === selectedVal);
+        if (found) {
+          map[field.key] = found;
+        }
+      }
+    }
+    return map;
+  });
+
+  const needsAmount = computed(() => {
+    if (staff.value.businessType !== '買取大吉') return false;
+    return Object.values(selectedOptions.value).some(opt => Boolean(opt.isAmountTrigger));
+  });
+
+  const isReasonTriggered = (fieldKey) => {
+    const opt = selectedOptions.value[fieldKey];
+    return Boolean(opt && opt.isReasonTrigger);
+  };
+
+  const selectOption = (fieldKey, opt) => {
+    answers[fieldKey] = opt.text;
+    if (errors[fieldKey]) {
+      delete errors[fieldKey];
+    }
+
+    if (!opt.isReasonTrigger) {
+      reasons[fieldKey] = '';
+      if (errors['reason_' + fieldKey]) {
+        delete errors['reason_' + fieldKey];
+      }
+    }
+
+    if (!needsAmount.value) {
+      amount.value = null;
+      if (errors.amount) delete errors.amount;
+    }
+  };
+
+  const selectItemReason = (fieldKey, rText) => {
+    reasons[fieldKey] = rText;
+    if (errors['reason_' + fieldKey]) {
+      delete errors['reason_' + fieldKey];
+    }
+  };
+
+  const validate = () => {
+    Object.keys(errors).forEach(key => delete errors[key]);
+    let isValid = true;
+
+    for (const field of fields.value) {
+      if (!field.options || field.options.length === 0) continue;
+      if (!answers[field.key]) {
+        errors[field.key] = `「${field.label}」を選択してください`;
+        isValid = false;
+      } else if (isReasonTriggered(field.key)) {
+        if (!reasons[field.key]) {
+          errors['reason_' + field.key] = '未提案の理由を選択してください';
+          isValid = false;
+        }
+      }
+    }
+
+    if (needsAmount.value && staff.value.businessType === '買取大吉') {
+      const amt = amount.value;
+      if (
+        amt === null || 
+        amt === undefined || 
+        amt === '' || 
+        typeof amt !== 'number' || 
+        isNaN(amt) || 
+        !Number.isInteger(amt) || 
+        amt < 0
+      ) {
+        errors.amount = '成約金額を0以上の整数で入力してください';
+        isValid = false;
+      }
+    }
+
+    return isValid;
+  };
+
+  const resetForm = () => {
+    (fields.value || []).forEach(field => {
+      answers[field.key] = '';
+      reasons[field.key] = '';
+    });
+    amount.value = null;
+    Object.keys(errors).forEach(key => delete errors[key]);
+    serverErrorMessage.value = '';
+    submissionId.value = generateUUID();
+  };
+
+  const handleSubmit = async () => {
+    if (isSubmitting.value) return;
+    serverErrorMessage.value = '';
+
+    if (!validate()) {
+      const firstError = document.querySelector('.border-rose-400');
+      if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
+    isSubmitting.value = true;
+
+    const payload = {
+      submissionId: submissionId.value,
+      targetDate: todayStr.value,
+      staff: { id: staff.value.id },
+      answers: { ...answers },
+      reasons: { ...reasons },
+      amount: (needsAmount.value && staff.value.businessType === '買取大吉') ? amount.value : null
+    };
+
+    try {
+      const response = await callServer('submitServiceRecord', payload);
+      isSubmitting.value = false;
+
+      if (response && response.success) {
+        modalTitle.value = '登録が完了しました！';
+        modalMessage.value = '接客実績を正常に記録しました。<br>お疲れ様でした！';
+        isCompleted.value = true;
+        submissionId.value = generateUUID();
+
+        setTimeout(() => {
+          isCompleted.value = false;
+          resetForm();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 1500);
+      } else {
+        serverErrorMessage.value = response ? response.message : '登録処理に失敗しました。';
+      }
+    } catch (error) {
+      isSubmitting.value = false;
+      console.error('Submit Error:', error);
+      serverErrorMessage.value = '通信エラーが発生しました: ' + (error.message || '時間をおいて再送信してください。');
+    }
+  };
+
+  // ==========================================
+  // 【複数行入力 (方式A：batch)】用ステート・ロジック
+  // ==========================================
+  const batchTargetDate = ref(todayIsoStr);
+  const batchId = ref(generateUUID());
+  const batchErrors = reactive({});
+  const isBatchSubmitting = ref(false);
+  const batchServerErrorMessage = ref('');
+
+  const createEmptyBatchRecord = () => {
+    const recAnswers = {};
+    const recReasons = {};
+    (fields.value || []).forEach(f => {
+      recAnswers[f.key] = '';
+      recReasons[f.key] = '';
+    });
+    return {
+      id: generateUUID(),
+      answers: recAnswers,
+      reasons: recReasons,
+      amount: null
+    };
+  };
+
+  const batchRecords = ref([createEmptyBatchRecord()]);
+
+  const addBatchRecord = () => {
+    batchRecords.value.push(createEmptyBatchRecord());
+  };
+
+  const removeBatchRecord = (index) => {
+    if (batchRecords.value.length > 1) {
+      batchRecords.value.splice(index, 1);
+      Object.keys(batchErrors).forEach(key => delete batchErrors[key]);
+    }
+  };
+
+  const copyBatchRecord = (index) => {
+    const source = batchRecords.value[index];
+    if (!source) return;
+    const cloned = {
+      id: generateUUID(),
+      answers: { ...source.answers },
+      reasons: { ...source.reasons },
+      amount: source.amount
+    };
+    batchRecords.value.push(cloned);
+  };
+
+  const isBatchRecordReasonTriggered = (record, fieldKey) => {
+    const selectedVal = record.answers[fieldKey];
+    if (!selectedVal) return false;
+    const field = fields.value.find(f => f.key === fieldKey);
+    if (!field) return false;
+    const opt = field.options.find(o => o.text === selectedVal);
+    return Boolean(opt && opt.isReasonTrigger);
+  };
+
+  const isBatchRecordAmountTriggered = (record) => {
+    if (staff.value.businessType !== '買取大吉') return false;
+    for (const field of fields.value) {
+      const selectedVal = record.answers[field.key];
+      if (selectedVal) {
+        const opt = field.options.find(o => o.text === selectedVal);
+        if (opt && opt.isAmountTrigger) return true;
+      }
+    }
+    return false;
+  };
+
+  const selectBatchOption = (recordIndex, fieldKey, opt) => {
+    const record = batchRecords.value[recordIndex];
+    if (!record) return;
+    record.answers[fieldKey] = opt.text;
+
+    const errKey = `${recordIndex}_${fieldKey}`;
+    if (batchErrors[errKey]) delete batchErrors[errKey];
+
+    if (!opt.isReasonTrigger) {
+      record.reasons[fieldKey] = '';
+      const rErrKey = `${recordIndex}_reason_${fieldKey}`;
+      if (batchErrors[rErrKey]) delete batchErrors[rErrKey];
+    }
+
+    if (!isBatchRecordAmountTriggered(record)) {
+      record.amount = null;
+      const amtErrKey = `${recordIndex}_amount`;
+      if (batchErrors[amtErrKey]) delete batchErrors[amtErrKey];
+    }
+  };
+
+  const selectBatchReason = (recordIndex, fieldKey, rText) => {
+    const record = batchRecords.value[recordIndex];
+    if (!record) return;
+    record.reasons[fieldKey] = rText;
+
+    const rErrKey = `${recordIndex}_reason_${fieldKey}`;
+    if (batchErrors[rErrKey]) delete batchErrors[rErrKey];
+  };
+
+  const validateBatch = () => {
+    Object.keys(batchErrors).forEach(key => delete batchErrors[key]);
+    let isValid = true;
+
+    if (!batchTargetDate.value) {
+      batchServerErrorMessage.value = '対象日を選択してください。';
+      return false;
+    }
+
+    if (!batchRecords.value || batchRecords.value.length === 0) {
+      batchServerErrorMessage.value = '最低1件の明細を入力してください。';
+      return false;
+    }
+
+    batchRecords.value.forEach((rec, idx) => {
+      for (const field of fields.value) {
+        if (!field.options || field.options.length === 0) continue;
+        const val = rec.answers[field.key];
+        if (!val) {
+          batchErrors[`${idx}_${field.key}`] = `「${field.label}」を選択してください`;
+          isValid = false;
+        } else if (isBatchRecordReasonTriggered(rec, field.key)) {
+          if (!rec.reasons[field.key]) {
+            batchErrors[`${idx}_reason_${field.key}`] = '未提案の理由を選択してください';
+            isValid = false;
+          }
+        }
+      }
+
+      if (isBatchRecordAmountTriggered(rec) && staff.value.businessType === '買取大吉') {
+        const amt = rec.amount;
+        if (
+          amt === null || 
+          amt === undefined || 
+          amt === '' || 
+          typeof amt !== 'number' || 
+          isNaN(amt) || 
+          !Number.isInteger(amt) || 
+          amt < 0
+        ) {
+          batchErrors[`${idx}_amount`] = '買取金額を0以上の整数で入力してください';
+          isValid = false;
+        }
+      }
+    });
+
+    return isValid;
+  };
+
+  const resetBatchForm = () => {
+    batchRecords.value = [createEmptyBatchRecord()];
+    Object.keys(batchErrors).forEach(key => delete batchErrors[key]);
+    batchServerErrorMessage.value = '';
+    batchId.value = generateUUID();
+    batchTargetDate.value = todayIsoStr;
+  };
+
+  const submitBatchRecords = async () => {
+    if (isBatchSubmitting.value) return;
+    batchServerErrorMessage.value = '';
+
+    if (!validateBatch()) {
+      const firstError = document.querySelector('.border-rose-400');
+      if (firstError) {
+        firstError.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }
+      return;
+    }
+
+    isBatchSubmitting.value = true;
+
+    const payload = {
+      staffId: staff.value.id,
+      targetDate: batchTargetDate.value,
+      batchId: batchId.value,
+      records: batchRecords.value.map(rec => ({
+        answers: { ...rec.answers },
+        reasons: { ...rec.reasons },
+        amount: isBatchRecordAmountTriggered(rec) ? rec.amount : null
+      }))
+    };
+
+    try {
+      const response = await callServer('submitBatchServiceRecords', payload);
+      isBatchSubmitting.value = false;
+
+      if (response && response.success) {
+        modalTitle.value = '一括登録が完了しました！';
+        modalMessage.value = `${response.count || batchRecords.value.length}件の接客実績を一括登録しました。<br>お疲れ様でした！`;
+        isCompleted.value = true;
+        batchId.value = generateUUID();
+
+        setTimeout(() => {
+          isCompleted.value = false;
+          resetBatchForm();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 1500);
+      } else {
+        batchServerErrorMessage.value = response ? response.message : '一括登録処理に失敗しました。';
+      }
+    } catch (error) {
+      isBatchSubmitting.value = false;
+      console.error('Batch Submit Error:', error);
+      batchServerErrorMessage.value = '通信エラーが発生しました: ' + (error.message || '時間をおいて再送信してください。');
+    }
+  };
+
+  // ==========================================
+  // 【日次集計入力 (方式B：summary)】用ステート・ロジック
+  // ==========================================
+  const summaryTargetDate = ref(todayIsoStr);
+  const summarySubmissionId = ref(generateUUID());
+  const summaryTotalCount = ref('');
+  const summaryCounts = reactive({});
+  const summaryReasonCounts = reactive({});
+  const summaryTotalAmount = ref('');
+  const isSummarySubmitting = ref(false);
+  const summaryServerErrorMessage = ref('');
+
+  // 各項目・理由の初期化
+  const initSummaryState = () => {
+    summaryTotalCount.value = '';
+    summaryTotalAmount.value = '';
+    (fields.value || []).forEach(f => {
+      if (!summaryCounts[f.key]) summaryCounts[f.key] = {};
+      f.options.forEach(opt => {
+        summaryCounts[f.key][opt.text] = '';
+      });
+
+      if (!summaryReasonCounts[f.key]) summaryReasonCounts[f.key] = {};
+      const reasons = reasonsByItem.value[f.key] || [];
+      reasons.forEach(r => {
+        summaryReasonCounts[f.key][r.text] = '';
+      });
+    });
+  };
+  initSummaryState();
+
+  // 買取大吉で成約トリガーの選択肢に入力があるか
+  const summaryNeedsAmount = computed(() => {
+    if (staff.value.businessType !== '買取大吉') return false;
+    for (const field of fields.value) {
+      const fCounts = summaryCounts[field.key] || {};
+      for (const opt of (field.options || [])) {
+        if (opt.isAmountTrigger) {
+          const val = Number(fCounts[opt.text]) || 0;
+          if (val > 0) return true;
+        }
+      }
+    }
+    return false;
+  });
+
+  // 未提案件数と未提案理由内訳合計の厳密なリアルタイム監視（computed）
+  const summaryReasonValidation = computed(() => {
+    const result = {
+      errors: {},      // fieldKey -> errorMessage
+      details: {},     // fieldKey -> { unproposedCount, reasonSum, diff, isValid }
+      hasAnyError: false
+    };
+
+    for (const field of fields.value) {
+      const fieldKey = field.key;
+      const fCounts = summaryCounts[fieldKey] || {};
+      const fReasonCounts = summaryReasonCounts[fieldKey] || {};
+
+      // 未提案件数の集計
+      let unproposed = 0;
+      let hasReasonTriggerOption = false;
+      (field.options || []).forEach(opt => {
+        if (opt.isReasonTrigger) {
+          hasReasonTriggerOption = true;
+          const raw = fCounts[opt.text];
+          unproposed += (raw === '' || raw === null || raw === undefined) ? 0 : (Number(raw) || 0);
+        }
+      });
+
+      if (!hasReasonTriggerOption) continue;
+
+      // 理由内訳の合計集計
+      let reasonSum = 0;
+      const reasons = reasonsByItem.value[fieldKey] || [];
+      reasons.forEach(r => {
+        const raw = fReasonCounts[r.text];
+        reasonSum += (raw === '' || raw === null || raw === undefined) ? 0 : (Number(raw) || 0);
+      });
+
+      const diff = reasonSum - unproposed;
+      const isValid = (diff === 0);
+
+      result.details[fieldKey] = {
+        unproposedCount: unproposed,
+        reasonSum: reasonSum,
+        diff: diff,
+        isValid: isValid
+      };
+
+      if (!isValid) {
+        result.hasAnyError = true;
+        const diffStr = diff > 0 ? `+${diff}` : `${diff}`;
+        result.errors[fieldKey] = `未提案数（${unproposed}件）と理由内訳の合計（${reasonSum}件）が一致していません（差: ${diffStr}件）`;
+      }
+    }
+
+    return result;
+  });
+
+  // 全体バリデーション有効判定
+  const isSummaryFormValid = computed(() => {
+    const tc = summaryTotalCount.value;
+    if (tc === '' || tc === null || tc === undefined || !Number.isInteger(Number(tc)) || Number(tc) < 0) {
+      return false;
+    }
+    if (summaryReasonValidation.value.hasAnyError) {
+      return false;
+    }
+    if (summaryNeedsAmount.value) {
+      const amt = summaryTotalAmount.value;
+      if (amt === '' || amt === null || amt === undefined || !Number.isInteger(Number(amt)) || Number(amt) < 0) {
+        return false;
+      }
+    }
+    return true;
+  });
+
+  const resetSummaryForm = () => {
+    initSummaryState();
+    summaryServerErrorMessage.value = '';
+    summarySubmissionId.value = generateUUID();
+    summaryTargetDate.value = todayIsoStr;
+  };
+
+  const submitDailySummary = async () => {
+    if (isSummarySubmitting.value) return;
+    summaryServerErrorMessage.value = '';
+
+    const tc = summaryTotalCount.value;
+    if (tc === '' || tc === null || tc === undefined || !Number.isInteger(Number(tc)) || Number(tc) < 0) {
+      summaryServerErrorMessage.value = '本日の総対応件数を0以上の整数で入力してください。';
+      return;
+    }
+
+    if (summaryReasonValidation.value.hasAnyError) {
+      summaryServerErrorMessage.value = '未提案数と理由内訳の合計が一致していない項目があります。各項目の警告をご確認ください。';
+      return;
+    }
+
+    if (summaryNeedsAmount.value) {
+      const amt = summaryTotalAmount.value;
+      if (amt === '' || amt === null || amt === undefined || !Number.isInteger(Number(amt)) || Number(amt) < 0) {
+        summaryServerErrorMessage.value = '成約が1件以上あるため、買取成約総額を0以上の整数で入力してください。';
+        return;
+      }
+    }
+
+    isSummarySubmitting.value = true;
+
+    const cleanCounts = {};
+    const cleanReasonCounts = {};
+
+    fields.value.forEach(f => {
+      cleanCounts[f.key] = {};
+      f.options.forEach(opt => {
+        const raw = (summaryCounts[f.key] && summaryCounts[f.key][opt.text]);
+        cleanCounts[f.key][opt.text] = (raw === '' || raw === null || raw === undefined) ? 0 : Number(raw);
+      });
+
+      cleanReasonCounts[f.key] = {};
+      const rList = reasonsByItem.value[f.key] || [];
+      rList.forEach(r => {
+        const raw = (summaryReasonCounts[f.key] && summaryReasonCounts[f.key][r.text]);
+        cleanReasonCounts[f.key][r.text] = (raw === '' || raw === null || raw === undefined) ? 0 : Number(raw);
+      });
+    });
+
+    const payload = {
+      staffId: staff.value.id,
+      targetDate: summaryTargetDate.value,
+      submissionId: summarySubmissionId.value,
+      totalCount: Number(summaryTotalCount.value),
+      counts: cleanCounts,
+      reasonCounts: cleanReasonCounts,
+      totalAmount: summaryNeedsAmount.value ? Number(summaryTotalAmount.value) : 0
+    };
+
+    try {
+      const response = await callServer('submitDailySummaryRecord', payload);
+      isSummarySubmitting.value = false;
+
+      if (response && response.success) {
+        modalTitle.value = '日次集計の登録が完了しました！';
+        modalMessage.value = '本日の接客日次集計を正常に記録しました。<br>お疲れ様でした！';
+        isCompleted.value = true;
+        summarySubmissionId.value = generateUUID();
+
+        setTimeout(() => {
+          isCompleted.value = false;
+          resetSummaryForm();
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }, 1500);
+      } else {
+        summaryServerErrorMessage.value = response ? response.message : '日次集計の登録に失敗しました。';
+      }
+    } catch (error) {
+      isSummarySubmitting.value = false;
+      console.error('Summary Submit Error:', error);
+      summaryServerErrorMessage.value = '通信エラーが発生しました: ' + (error.message || '時間をおいて再送信してください。');
+    }
+  };
+
+  const adjustSummaryCount = (fieldKey, optText, delta) => {
+    if (!summaryCounts[fieldKey]) summaryCounts[fieldKey] = {};
+    const current = Number(summaryCounts[fieldKey][optText]) || 0;
+    const next = Math.max(0, current + delta);
+    summaryCounts[fieldKey][optText] = next === 0 ? '' : next;
+  };
+
+  const adjustSummaryReasonCount = (fieldKey, rText, delta) => {
+    if (!summaryReasonCounts[fieldKey]) summaryReasonCounts[fieldKey] = {};
+    const current = Number(summaryReasonCounts[fieldKey][rText]) || 0;
+    const next = Math.max(0, current + delta);
+    summaryReasonCounts[fieldKey][rText] = next === 0 ? '' : next;
+  };
+
+  return {
+    staff,
+    fields,
+    reasonsByItem,
+    currentTab,
+    todayStr,
+    maxDateStr,
+    isCompleted,
+    modalTitle,
+    modalMessage,
+
+    // 1件ずつ入力
+    answers,
+    reasons,
+    amount,
+    errors,
+    isSubmitting,
+    serverErrorMessage,
+    needsAmount,
+    isReasonTriggered,
+    selectOption,
+    selectItemReason,
+    resetForm,
+    handleSubmit,
+
+    // 複数行入力（方式A）
+    batchTargetDate,
+    batchRecords,
+    batchErrors,
+    isBatchSubmitting,
+    batchServerErrorMessage,
+    addBatchRecord,
+    removeBatchRecord,
+    copyBatchRecord,
+    isBatchRecordReasonTriggered,
+    isBatchRecordAmountTriggered,
+    selectBatchOption,
+    selectBatchReason,
+    resetBatchForm,
+    submitBatchRecords,
+
+    // 日次集計入力（方式B）
+    summaryTargetDate,
+    summaryTotalCount,
+    summaryCounts,
+    summaryReasonCounts,
+    summaryTotalAmount,
+    summaryNeedsAmount,
+    summaryReasonValidation,
+    isSummaryFormValid,
+    isSummarySubmitting,
+    summaryServerErrorMessage,
+    adjustSummaryCount,
+    adjustSummaryReasonCount,
+    resetSummaryForm,
+    submitDailySummary
+  };
+}
+</script>
+
+
+================================================================================
+[FILE 13/16] gas\画面_管理.html
+================================================================================
+<!-- 管理画面メインUI -->
+<header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <div class="flex items-center justify-between h-16">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-slate-900 text-white flex items-center justify-center font-bold text-lg shadow-md">
+          <svg class="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <div>
+          <h1 class="text-lg font-bold text-slate-900 tracking-tight leading-none">マスタ管理ポータル</h1>
+          <p class="text-xs text-slate-500 mt-1">接客実績入力Webアプリケーション</p>
+        </div>
+      </div>
+
+      <div class="flex items-center space-x-3">
+        <span class="hidden sm:inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 border border-emerald-200">
+          <span class="w-1.5 h-1.5 rounded-full bg-emerald-500 mr-1.5 animate-pulse"></span>
+          本番稼働中
+        </span>
+        <button 
+          v-if="staffList.length > 0 && staffList[0].url"
+          @click="copyStaffUrl(staffList[0])" 
+          class="hidden md:inline-flex items-center text-xs font-semibold px-3 py-1.5 rounded-lg border border-slate-300 text-slate-700 hover:bg-slate-50 transition">
+          <svg class="w-3.5 h-3.5 mr-1 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+          </svg>
+          プレビューURL
+        </button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex-1 w-full">
+  <!-- 上部コントロールバー -->
+  <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+    <div class="inline-flex p-1 bg-slate-200/80 rounded-xl shadow-inner self-start">
+      <button 
+        type="button"
+        @click="activeBusinessType = '整骨院'"
+        :class="[
+          'flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-200',
+          activeBusinessType === '整骨院' 
+            ? 'bg-emerald-600 text-white shadow-md' 
+            : 'text-slate-600 hover:text-slate-900'
+        ]">
+        <span class="w-2.5 h-2.5 rounded-full" :class="activeBusinessType === '整骨院' ? 'bg-white' : 'bg-emerald-500'"></span>
+        <span>整骨院 マスタ</span>
+      </button>
+
+      <button 
+        type="button"
+        @click="activeBusinessType = '買取大吉'"
+        :class="[
+          'flex items-center space-x-2 px-5 py-2.5 rounded-lg text-sm font-bold transition-all duration-200',
+          activeBusinessType === '買取大吉' 
+            ? 'bg-amber-600 text-white shadow-md' 
+            : 'text-slate-600 hover:text-slate-900'
+        ]">
+        <span class="w-2.5 h-2.5 rounded-full" :class="activeBusinessType === '買取大吉' ? 'bg-white' : 'bg-amber-500'"></span>
+        <span>買取大吉 マスタ</span>
+      </button>
+    </div>
+
+    <!-- マスタ切り替えタブ -->
+    <div class="flex border-b border-slate-200 sm:border-none space-x-1 sm:space-x-2 overflow-x-auto pb-1 sm:pb-0">
+      <button 
+        @click="activeTab = 'items'"
+        :class="[
+          'flex items-center space-x-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap',
+          activeTab === 'items' 
+            ? 'bg-white text-slate-900 shadow-sm border border-slate-200' 
+            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+        ]">
+        <svg class="w-4 h-4" :class="activeBusinessType === '整骨院' ? 'text-emerald-600' : 'text-amber-600'" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+        <span>入力項目・選択肢</span>
+        <span class="ml-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
+          {{ currentItems.length }}
+        </span>
+      </button>
+
+      <button 
+        @click="activeTab = 'reasons'"
+        :class="[
+          'flex items-center space-x-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap',
+          activeTab === 'reasons' 
+            ? 'bg-white text-slate-900 shadow-sm border border-slate-200' 
+            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+        ]">
+        <svg class="w-4 h-4 text-rose-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+        <span>未提案理由</span>
+        <span class="ml-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
+          {{ reasonEligibleItems.length }}項目
+        </span>
+      </button>
+
+      <button 
+        @click="activeTab = 'staff'"
+        :class="[
+          'flex items-center space-x-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap',
+          activeTab === 'staff' 
+            ? 'bg-white text-slate-900 shadow-sm border border-slate-200' 
+            : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+        ]">
+        <svg class="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        </svg>
+        <span>スタッフ・専用URL</span>
+        <span class="ml-1 text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-bold">
+          {{ staffList.length }}
+        </span>
+      </button>
+    </div>
+  </div>
+
+  <!-- TAB 1: 入力項目・選択肢設定（8列構成） -->
+  <section v-if="activeTab === 'items'" class="space-y-4">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <div class="flex items-center space-x-2">
+          <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md"
+            :class="activeBusinessType === '整骨院' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+            {{ activeBusinessType }}
+          </span>
+          <h2 class="text-base font-bold text-slate-900">入力項目・選択肢の設定</h2>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">
+          項目の追加・名前変更・無効化（論理削除）を行うと、回答シートのヘッダー列が安全に自動同期されます。
+        </p>
+      </div>
+
+      <div class="flex items-center space-x-2 shrink-0">
+        <button 
+          type="button" 
+          @click="openAddItemModal"
+          class="inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition">
+          <svg class="w-4 h-4 mr-1.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          項目を追加
+        </button>
+
+        <button 
+          type="button" 
+          @click="saveItems"
+          :disabled="isSubmitting"
+          :class="[
+            'inline-flex items-center px-5 py-2 rounded-xl text-sm font-bold text-white shadow-md transition disabled:opacity-50 disabled:cursor-not-allowed',
+            activeBusinessType === '整骨院' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-amber-600 hover:bg-amber-700'
+          ]">
+          <svg v-if="isSubmitting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <svg v-else class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          {{ isSubmitting ? '保存・同期中...' : '変更を保存＆同期' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- 項目カードリスト -->
+    <div class="space-y-3">
+      <div 
+        v-for="(item, index) in currentItems" 
+        :key="item.key"
+        :class="[
+          'bg-white rounded-2xl border transition-all duration-200 overflow-hidden shadow-sm',
+          !item.isActive ? 'border-slate-300 bg-slate-50/60 opacity-75' : 'border-slate-200 hover:border-slate-300'
+        ]">
+        
+        <div class="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white border-b border-slate-100">
+          <div class="flex items-center space-x-3 flex-1">
+            <div class="flex flex-col space-y-0.5">
+              <button 
+                type="button"
+                @click.stop="moveItem(index, -1)"
+                :disabled="index === 0"
+                class="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 disabled:opacity-20 disabled:hover:bg-transparent"
+                title="上に移動">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+              </button>
+              <button 
+                type="button"
+                @click.stop="moveItem(index, 1)"
+                :disabled="index === currentItems.length - 1"
+                class="p-1 rounded hover:bg-slate-100 text-slate-400 hover:text-slate-700 disabled:opacity-20 disabled:hover:bg-transparent"
+                title="下に移動">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+            </div>
+
+            <span class="w-7 h-7 rounded-lg bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center shrink-0">
+              #{{ index + 1 }}
+            </span>
+
+            <div class="flex-1 max-w-md">
+              <div class="flex items-center space-x-2">
+                <input 
+                  type="text" 
+                  v-model="item.label" 
+                  placeholder="項目表示名（例: 次回予約の獲得）"
+                  class="font-bold text-slate-800 text-sm sm:text-base border border-transparent hover:border-slate-300 focus:border-slate-500 rounded-lg px-2.5 py-1 w-full bg-slate-50/50 focus:bg-white focus:outline-none transition">
+              </div>
+              <p class="text-xs text-slate-400 pl-2 mt-0.5 flex items-center space-x-2">
+                <span>キー: <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">{{ item.key }}</code></span>
+                <span v-if="item.originalLabel && item.originalLabel !== item.label" class="text-amber-600 font-medium">
+                  ※ 旧: {{ item.originalLabel }} から変更
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end space-x-3 shrink-0">
+            <span class="text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 font-medium">
+              選択肢: {{ item.options.length }}件
+            </span>
+
+            <button 
+              type="button" 
+              @click.stop="toggleItemActive(item)"
+              :class="[
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                item.isActive ? (activeBusinessType === '整骨院' ? 'bg-emerald-500' : 'bg-amber-500') : 'bg-slate-300'
+              ]">
+              <span 
+                :class="[
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  item.isActive ? 'translate-x-5' : 'translate-x-0'
+                ]"></span>
+            </button>
+            <span class="text-xs font-bold" :class="item.isActive ? 'text-slate-700' : 'text-slate-400'">
+              {{ item.isActive ? '有効' : '無効' }}
+            </span>
+
+            <button 
+              type="button" 
+              @click="toggleItemAccordion(item)"
+              class="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition">
+              <svg 
+                class="w-5 h-5 transform transition-transform duration-200"
+                :class="item.isOpen ? 'rotate-180' : 'rotate-0'"
+                fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div v-show="item.isOpen" class="p-4 sm:p-5 bg-slate-50/70 border-t border-slate-100">
+          <div class="mb-3 flex items-center justify-between">
+            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-wider">配下の選択肢リスト & 連動トリガー</h4>
+            <button 
+              type="button" 
+              @click="addOptionToItem(item)"
+              class="text-xs font-semibold text-emerald-600 hover:text-emerald-700 flex items-center space-x-1">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              <span>選択肢を追加</span>
+            </button>
+          </div>
+
+          <div class="space-y-2">
+            <div 
+              v-for="(opt, oIdx) in item.options" 
+              :key="oIdx"
+              class="bg-white p-3 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3">
+              
+              <div class="flex items-center space-x-2 flex-1">
+                <div class="flex items-center space-x-0.5">
+                  <button 
+                    type="button" 
+                    @click="moveOption(item, oIdx, -1)" 
+                    :disabled="oIdx === 0"
+                    class="p-1 rounded text-slate-300 hover:text-slate-600 disabled:opacity-20"
+                    title="上に移動">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+                  </button>
+                  <button 
+                    type="button" 
+                    @click="moveOption(item, oIdx, 1)" 
+                    :disabled="oIdx === item.options.length - 1"
+                    class="p-1 rounded text-slate-300 hover:text-slate-600 disabled:opacity-20"
+                    title="下に移動">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                  </button>
+                </div>
+
+                <span class="text-xs font-bold text-slate-400 w-5 text-center">{{ oIdx + 1 }}.</span>
+
+                <input 
+                  type="text" 
+                  v-model="opt.text"
+                  placeholder="選択肢名（例: 獲得）"
+                  class="flex-1 text-sm font-medium text-slate-800 border border-slate-200 rounded-lg px-3 py-1.5 focus:border-slate-500 focus:outline-none">
+              </div>
+
+              <div class="flex items-center space-x-4 pl-7 md:pl-0">
+                <label class="inline-flex items-center space-x-1.5 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    v-model="opt.isReasonTrigger" 
+                    class="rounded border-slate-300 text-rose-500 focus:ring-rose-400 h-4 w-4">
+                  <span class="text-xs font-semibold" :class="opt.isReasonTrigger ? 'text-rose-600' : 'text-slate-500'">
+                    未提案理由を表示
+                  </span>
+                </label>
+
+                <!-- 整骨院では金額トリガー入力を完全非表示 -->
+                <label v-if="activeBusinessType !== '整骨院'" class="inline-flex items-center space-x-1.5 cursor-pointer">
+                  <input 
+                    type="checkbox" 
+                    v-model="opt.isAmountTrigger" 
+                    class="rounded border-slate-300 text-amber-500 focus:ring-amber-400 h-4 w-4">
+                  <span class="text-xs font-semibold" :class="opt.isAmountTrigger ? 'text-amber-600' : 'text-slate-500'">
+                    買取金額入力を表示
+                  </span>
+                </label>
+
+                <button 
+                  type="button" 
+                  @click="removeOptionFromItem(item, oIdx)"
+                  class="p-1 text-slate-300 hover:text-rose-500 rounded transition"
+                  title="選択肢を削除">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 2: 未提案理由設定（項目別管理対応） -->
+  <section v-if="activeTab === 'reasons'" class="space-y-4">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <div class="flex items-center space-x-2">
+          <span class="text-xs font-bold uppercase tracking-wider px-2 py-0.5 rounded-md"
+            :class="activeBusinessType === '整骨院' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+            {{ activeBusinessType }}
+          </span>
+          <h2 class="text-base font-bold text-slate-900">未提案理由マスタ設定（項目別）</h2>
+        </div>
+        <p class="text-xs text-slate-500 mt-1">
+          各入力項目で未提案トリガーが引かれた際に表示される理由の選択肢を項目ごとに管理します。
+        </p>
+      </div>
+
+      <div class="flex items-center space-x-2 shrink-0">
+        <button 
+          type="button" 
+          @click="addReason"
+          :disabled="!selectedReasonItemKey"
+          class="inline-flex items-center px-3.5 py-2 rounded-xl text-sm font-semibold border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 shadow-sm transition disabled:opacity-40 disabled:cursor-not-allowed">
+          <svg class="w-4 h-4 mr-1.5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+          </svg>
+          理由を追加
+        </button>
+
+        <button 
+          type="button" 
+          @click="saveReasons"
+          :disabled="isSubmitting"
+          class="inline-flex items-center px-5 py-2 rounded-xl text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 shadow-md transition disabled:opacity-50">
+          <svg v-if="isSubmitting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <svg v-else class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          全項目の理由設定を一括保存
+        </button>
+      </div>
+    </div>
+
+    <!-- 項目選択セレクター -->
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+      <div v-if="reasonEligibleItems.length > 0" class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center space-x-3 flex-1">
+          <label class="text-xs font-bold text-slate-700 shrink-0">編集対象項目:</label>
+          <select 
+            v-model="selectedReasonItemKey" 
+            class="text-sm font-bold border border-slate-300 rounded-xl px-3.5 py-2 bg-slate-50 hover:bg-white focus:bg-white focus:border-slate-500 focus:outline-none transition max-w-sm w-full">
+            <option v-for="item in reasonEligibleItems" :key="item.key" :value="item.key">
+              {{ item.label }} (キー: {{ item.key }})
+            </option>
+          </select>
+        </div>
+        <span class="text-xs text-slate-400">
+          ※ 選択肢に「未提案理由を表示」が設定されている項目のみ選択可能です
+        </span>
+      </div>
+
+      <div v-else class="p-6 text-center text-slate-400">
+        <svg class="w-8 h-8 mx-auto mb-2 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <p class="text-sm font-medium">現在、{{ activeBusinessType }} に未提案トリガーが設定された項目がありません。</p>
+        <p class="text-xs mt-1">「入力項目・選択肢」タブで、各選択肢の「未提案理由を表示」にチェックを入れてください。</p>
+      </div>
+    </div>
+
+    <!-- 選択中項目の理由一覧 -->
+    <div v-if="selectedReasonItemKey" class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden p-4 sm:p-6">
+      <div class="mb-3 flex items-center justify-between">
+        <h3 class="text-xs font-bold text-slate-500 uppercase tracking-wider">
+          登録済み理由リスト（{{ currentReasons.length }}件）
+        </h3>
+      </div>
+
+      <div class="space-y-2.5">
+        <div 
+          v-for="(r, idx) in currentReasons" 
+          :key="idx"
+          :class="[
+            'p-3.5 rounded-xl border flex items-center justify-between gap-3 transition-colors',
+            r.isActive ? 'bg-white border-slate-200' : 'bg-slate-50 border-slate-200/60 opacity-60'
+          ]">
+          
+          <div class="flex items-center space-x-3 flex-1">
+            <div class="flex flex-col space-y-0.5">
+              <button 
+                type="button" 
+                @click="moveReason(idx, -1)" 
+                :disabled="idx === 0"
+                class="p-1 rounded text-slate-300 hover:text-slate-600 disabled:opacity-20"
+                title="上に移動">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"/></svg>
+              </button>
+              <button 
+                type="button" 
+                @click="moveReason(idx, 1)" 
+                :disabled="idx === currentReasons.length - 1"
+                class="p-1 rounded text-slate-300 hover:text-slate-600 disabled:opacity-20"
+                title="下に移動">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+            </div>
+
+            <span class="text-xs font-bold text-slate-400 w-6">#{{ idx + 1 }}</span>
+
+            <input 
+              type="text" 
+              v-model="r.text" 
+              placeholder="未提案理由テキスト（例: 時間不足・混雑）"
+              class="flex-1 text-sm font-semibold text-slate-800 border border-slate-200 rounded-lg px-3 py-1.5 focus:border-slate-500 focus:outline-none">
+          </div>
+
+          <div class="flex items-center space-x-3">
+            <button 
+              type="button" 
+              @click="toggleReasonActive(r)"
+              :class="[
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
+                r.isActive ? 'bg-emerald-500' : 'bg-slate-300'
+              ]">
+              <span 
+                :class="[
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  r.isActive ? 'translate-x-5' : 'translate-x-0'
+                ]"></span>
+            </button>
+            <span class="text-xs font-medium w-8 text-slate-600">{{ r.isActive ? '有効' : '無効' }}</span>
+
+            <button 
+              type="button" 
+              @click="removeReason(idx)"
+              class="p-1.5 text-slate-300 hover:text-rose-500 rounded transition"
+              title="削除">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div v-if="currentReasons.length === 0" class="text-center py-6 text-slate-400 text-sm">
+          この項目にはまだ未提案理由が登録されていません。「理由を追加」ボタンから追加してください。
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TAB 3: スタッフ・専用URL管理 -->
+  <section v-if="activeTab === 'staff'" class="space-y-4">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div class="flex flex-col sm:flex-row sm:items-center gap-3 flex-1">
+        <div class="relative flex-1 max-w-sm">
+          <svg class="w-4 h-4 absolute left-3 top-3 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input 
+            type="text" 
+            v-model="staffSearchQuery"
+            placeholder="スタッフ名・ID・店舗で検索..."
+            class="w-full pl-9 pr-3 py-2 text-sm border border-slate-200 rounded-xl focus:border-slate-500 focus:outline-none">
+        </div>
+
+        <select 
+          v-model="staffFilterBusiness"
+          class="text-sm border border-slate-200 rounded-xl px-3 py-2 bg-white focus:outline-none">
+          <option value="all">すべての事業区分</option>
+          <option value="整骨院">整骨院のみ</option>
+          <option value="買取大吉">買取大吉のみ</option>
+        </select>
+      </div>
+
+      <div class="flex items-center space-x-2 shrink-0">
+        <button 
+          type="button" 
+          @click="openAddStaffModal"
+          class="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md transition">
+          <svg class="w-4 h-4 mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z" />
+          </svg>
+          スタッフ新規登録
+        </button>
+      </div>
+    </div>
+
+    <!-- スタッフ一覧テーブル -->
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+          <thead class="bg-slate-50 text-slate-500 font-semibold">
+            <tr>
+              <th scope="col" class="px-4 py-3.5">スタッフID</th>
+              <th scope="col" class="px-4 py-3.5">氏名</th>
+              <th scope="col" class="px-4 py-3.5">事業区分</th>
+              <th scope="col" class="px-4 py-3.5">店舗名</th>
+              <th scope="col" class="px-4 py-3.5">状態</th>
+              <th scope="col" class="px-4 py-3.5">専用入力URL</th>
+              <th scope="col" class="px-4 py-3.5 text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 bg-white">
+            <tr 
+              v-for="st in filteredStaffList" 
+              :key="st.id"
+              :class="!st.isActive ? 'bg-slate-50/60 opacity-60' : 'hover:bg-slate-50/80 transition-colors'">
+              
+              <td class="px-4 py-3.5 font-mono font-bold text-slate-800">{{ st.id }}</td>
+              <td class="px-4 py-3.5 font-bold text-slate-900">{{ st.name }}</td>
+              <td class="px-4 py-3.5">
+                <span 
+                  class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold"
+                  :class="st.businessType === '整骨院' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'">
+                  {{ st.businessType }}
+                </span>
+              </td>
+              <td class="px-4 py-3.5 text-slate-600">{{ st.storeName }}</td>
+              <td class="px-4 py-3.5">
+                <button 
+                  type="button" 
+                  @click="toggleStaffActive(st)"
+                  class="inline-flex items-center space-x-1.5 focus:outline-none">
+                  <span 
+                    class="w-2.5 h-2.5 rounded-full"
+                    :class="st.isActive ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'"></span>
+                  <span class="text-xs font-medium" :class="st.isActive ? 'text-emerald-700 font-bold' : 'text-slate-400'">
+                    {{ st.isActive ? '有効' : '停止中' }}
+                  </span>
+                </button>
+              </td>
+
+              <!-- 専用URL ワンクリックコピー -->
+              <td class="px-4 py-3.5">
+                <button 
+                  type="button" 
+                  @click="copyStaffUrl(st)"
+                  :disabled="!st.url"
+                  class="inline-flex items-center space-x-1 px-3 py-1.5 rounded-lg text-xs font-semibold border transition shadow-sm disabled:opacity-40"
+                  :class="copiedStaffId === st.id 
+                    ? 'bg-emerald-600 text-white border-emerald-600' 
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'">
+                  <svg v-if="copiedStaffId === st.id" class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                  </svg>
+                  <svg v-else class="w-3.5 h-3.5 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                  <span>{{ copiedStaffId === st.id ? 'コピー完了！' : 'URLをコピー' }}</span>
+                </button>
+              </td>
+
+              <td class="px-4 py-3.5 text-right">
+                <button 
+                  type="button" 
+                  @click="openEditStaffModal(st)"
+                  class="text-xs font-semibold text-blue-600 hover:text-blue-800 p-1">
+                  編集
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="px-4 py-3 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex justify-between items-center">
+        <span>該当スタッフ: {{ filteredStaffList.length }} 名</span>
+        <span class="text-slate-400">※ スタッフの追加・編集は即時保存されます</span>
+      </div>
+    </div>
+  </section>
+</main>
+
+<!-- MODAL: 項目追加 -->
+<div v-if="showAddItemModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-lg w-full shadow-2xl border border-slate-200 overflow-hidden">
+    <div class="p-6">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 class="text-base font-bold text-slate-900">新規入力項目の追加（{{ activeBusinessType }}）</h3>
+        <button @click="showAddItemModal = false" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">項目表示名 <span class="text-rose-500">*</span></label>
+          <input 
+            type="text" 
+            v-model="newItemForm.label"
+            placeholder="例: 会員登録・LINE友だち追加"
+            class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:border-slate-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">項目キー（未入力の場合は項目名、半角英数字推奨）</label>
+          <input 
+            type="text" 
+            v-model="newItemForm.key"
+            placeholder="例: 会員登録"
+            class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:border-slate-500 focus:outline-none">
+          <p class="text-[11px] text-slate-400 mt-1">※ timestamp, staffId, staffName, storeName, amount, reason, submissionId は予約語のため使用できません。</p>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">初期選択肢リスト（改行区切り）</label>
+          <textarea 
+            v-model="newItemForm.optionsText"
+            rows="4"
+            class="w-full text-sm border border-slate-300 rounded-xl p-3 focus:border-slate-500 focus:outline-none font-mono"></textarea>
+          <p class="text-[11px] text-slate-400 mt-1">※ 「未提案」完全一致で理由トリガー、「成約」完全一致かつ買取大吉で金額トリガーが自動設定されます。</p>
+        </div>
+      </div>
+
+      <div class="mt-6 flex items-center justify-end space-x-3">
+        <button 
+          type="button" 
+          @click="showAddItemModal = false"
+          class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">
+          キャンセル
+        </button>
+        <button 
+          type="button" 
+          @click="submitAddItem"
+          class="px-5 py-2 rounded-xl text-sm font-bold text-white bg-slate-900 hover:bg-slate-800 shadow-md transition">
+          項目を作成
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL: スタッフ追加・編集 -->
+<div v-if="showStaffModal" class="fixed inset-0 z-50 overflow-y-auto bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden">
+    <div class="p-6">
+      <div class="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
+        <h3 class="text-base font-bold text-slate-900">
+          {{ isEditingStaff ? 'スタッフ情報の編集' : 'スタッフの新規登録' }}
+        </h3>
+        <button @click="showStaffModal = false" class="text-slate-400 hover:text-slate-600">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+
+      <div class="space-y-4">
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">スタッフID <span class="text-rose-500">* (半角英数字のみ)</span></label>
+          <input 
+            type="text" 
+            pattern="[A-Za-z0-9]+"
+            v-model="staffForm.id"
+            :disabled="isEditingStaff"
+            placeholder="例: S003 または D003"
+            class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:border-slate-500 focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 font-mono">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">スタッフ名 <span class="text-rose-500">*</span></label>
+          <input 
+            type="text" 
+            v-model="staffForm.name"
+            placeholder="例: 田中 太郎"
+            class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:border-slate-500 focus:outline-none">
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">事業区分 <span class="text-rose-500">*</span></label>
+          <select 
+            v-model="staffForm.businessType"
+            class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 bg-white focus:border-slate-500 focus:outline-none">
+            <option value="整骨院">整骨院</option>
+            <option value="買取大吉">買取大吉</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-700 mb-1">所属店舗名</label>
+          <input 
+            type="text" 
+            v-model="staffForm.storeName"
+            placeholder="例: 宮内整骨院 本院 / 買取大吉 中央店"
+            class="w-full text-sm border border-slate-300 rounded-xl px-3.5 py-2.5 focus:border-slate-500 focus:outline-none">
+        </div>
+
+        <div class="pt-2 flex items-center justify-between">
+          <span class="text-xs font-bold text-slate-700">アカウント状態</span>
+          <label class="inline-flex items-center space-x-2 cursor-pointer">
+            <input type="checkbox" v-model="staffForm.isActive" class="rounded text-emerald-600 h-4 w-4">
+            <span class="text-xs font-medium text-slate-700">{{ staffForm.isActive ? '有効（ログイン可能）' : '無効' }}</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="mt-6 flex items-center justify-end space-x-3">
+        <button 
+          type="button" 
+          @click="showStaffModal = false"
+          class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition">
+          キャンセル
+        </button>
+        <button 
+          type="button" 
+          @click="submitStaffModal"
+          class="px-5 py-2 rounded-xl text-sm font-bold text-white bg-blue-600 hover:bg-blue-700 shadow-md transition">
+          {{ isEditingStaff ? '更新を保存' : '登録する' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TOAST NOTIFICATION -->
+<div 
+  v-if="toast.show" 
+  class="fixed bottom-5 right-5 z-50 max-w-sm w-full bg-slate-900 text-white rounded-2xl shadow-2xl p-4 flex items-center space-x-3 border border-slate-700 transform transition-all duration-300">
+  <div class="shrink-0">
+    <div v-if="toast.type === 'success'" class="w-8 h-8 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/></svg>
+    </div>
+    <div v-else-if="toast.type === 'error'" class="w-8 h-8 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+    </div>
+    <div v-else class="w-8 h-8 rounded-full bg-blue-500/20 text-blue-400 flex items-center justify-center">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </div>
+  </div>
+  <div class="flex-1 text-xs sm:text-sm font-medium leading-relaxed">{{ toast.message }}</div>
+  <button @click="toast.show = false" class="text-slate-400 hover:text-white shrink-0 p-1">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+  </button>
+</div>
+
+
+================================================================================
+[FILE 14/16] gas\画面_接客実績.html
+================================================================================
+<!-- メイン画面テンプレート -->
+<div class="min-h-screen bg-slate-50/80 text-slate-800 pb-28 pt-4 px-3 sm:px-6 max-w-xl mx-auto">
+
+  <!-- ヘッダー：スタッフ情報カード -->
+  <header class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 mb-4 relative overflow-hidden">
+    <div class="absolute -right-6 -bottom-6 w-24 h-24 rounded-full opacity-10 pointer-events-none"
+         :class="staff.businessType === '整骨院' ? 'bg-emerald-600' : 'bg-amber-600'"></div>
+    
+    <div class="flex items-center justify-between mb-2">
+      <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold tracking-wide"
+            :class="staff.businessType === '整骨院' 
+              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
+              : 'bg-amber-50 text-amber-700 border border-amber-200'">
+        <span class="w-1.5 h-1.5 rounded-full mr-1.5"
+              :class="staff.businessType === '整骨院' ? 'bg-emerald-500' : 'bg-amber-500'"></span>
+        {{ staff.businessType }}
+      </span>
+
+      <span class="text-xs font-medium text-slate-400">ID: {{ staff.id }}</span>
+    </div>
+
+    <div class="flex items-baseline justify-between">
+      <div>
+        <p class="text-xs text-slate-500 font-medium">{{ staff.storeName }}</p>
+        <h1 class="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">{{ staff.name }} <span class="text-xs font-normal text-slate-400">担当</span></h1>
+      </div>
+      <div class="text-right">
+        <span class="text-xs text-slate-400 block">本日日付</span>
+        <span class="text-xs font-semibold text-slate-600">{{ todayStr }}</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- 入力モード切替タブ -->
+  <nav class="bg-slate-200/70 p-1 rounded-2xl mb-5 flex space-x-1 shadow-inner select-none" aria-label="Tabs">
+    <button
+      type="button"
+      @click="currentTab = 'single'"
+      class="flex-1 py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center justify-center space-x-1.5"
+      :class="currentTab === 'single'
+        ? (staff.businessType === '整骨院'
+            ? 'bg-white text-emerald-700 shadow-sm'
+            : 'bg-white text-amber-700 shadow-sm')
+        : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'"
+    >
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      </svg>
+      <span>1件ずつ入力</span>
+    </button>
+
+    <button
+      type="button"
+      @click="currentTab = 'batch'"
+      class="flex-1 py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center justify-center space-x-1.5"
+      :class="currentTab === 'batch'
+        ? (staff.businessType === '整骨院'
+            ? 'bg-white text-emerald-700 shadow-sm'
+            : 'bg-white text-amber-700 shadow-sm')
+        : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'"
+    >
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/>
+      </svg>
+      <span>複数行 (方式A)</span>
+    </button>
+
+    <button
+      type="button"
+      @click="currentTab = 'summary'"
+      class="flex-1 py-2.5 px-2 rounded-xl text-xs sm:text-sm font-bold transition-all duration-200 flex items-center justify-center space-x-1.5"
+      :class="currentTab === 'summary'
+        ? (staff.businessType === '整骨院'
+            ? 'bg-white text-emerald-700 shadow-sm'
+            : 'bg-white text-amber-700 shadow-sm')
+        : 'text-slate-600 hover:text-slate-900 hover:bg-white/40'"
+    >
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+      <span>日次集計 (方式B)</span>
+    </button>
+  </nav>
+
+  <!-- ======================================================== -->
+  <!-- 1. 【1件ずつ入力（既存フォーム）】                       -->
+  <!-- ======================================================== -->
+  <form v-show="currentTab === 'single'" @submit.prevent="handleSubmit" novalidate class="animate-fadeIn">
+    <div class="space-y-4">
+
+      <!-- 動的項目カードのループ生成 -->
+      <section 
+        v-for="(field, index) in fields" 
+        :key="'single_' + field.key"
+        class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border transition-all duration-200"
+        :class="(errors[field.key] || errors['reason_' + field.key]) ? 'border-rose-400 ring-2 ring-rose-100' : 'border-slate-200/80'"
+      >
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <span class="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold">
+              {{ index + 1 }}
+            </span>
+            <h2 class="text-sm sm:text-base font-bold text-slate-800">{{ field.label }}</h2>
+          </div>
+          <span class="text-[11px] font-semibold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md">必須</span>
+        </div>
+
+        <!-- 選択肢ボタングループ -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+          <button
+            v-for="opt in field.options"
+            :key="opt.text"
+            type="button"
+            @click="selectOption(field.key, opt)"
+            class="relative flex items-center justify-between p-3.5 rounded-xl border text-left font-medium transition-all duration-150 active:scale-[0.98] select-none"
+            :class="answers[field.key] === opt.text
+              ? (staff.businessType === '整骨院'
+                  ? 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-600/20'
+                  : 'bg-amber-600 text-white border-amber-600 shadow-md shadow-amber-600/20')
+              : 'bg-slate-50/80 hover:bg-slate-100 text-slate-700 border-slate-200'"
+          >
+            <span class="text-sm font-semibold">{{ opt.text }}</span>
+            <span 
+              class="w-5 h-5 rounded-full flex items-center justify-center border transition-colors"
+              :class="answers[field.key] === opt.text
+                ? 'border-white bg-white/20 text-white'
+                : 'border-slate-300 text-transparent'"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/>
+              </svg>
+            </span>
+          </button>
+        </div>
+
+        <!-- 項目エラーメッセージ -->
+        <p v-if="errors[field.key]" class="mt-2 text-xs font-medium text-rose-500 flex items-center">
+          <svg class="w-3.5 h-3.5 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+          </svg>
+          {{ errors[field.key] }}
+        </p>
+
+        <!-- 項目内 未提案理由アコーディオン展開エリア -->
+        <div 
+          v-if="isReasonTriggered(field.key)" 
+          class="mt-3.5 pt-3.5 border-t border-slate-100 animate-fadeIn"
+        >
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+              <h3 class="text-xs font-bold text-slate-700">「{{ field.label }}」の未提案理由を選択</h3>
+            </div>
+            <span class="text-[10px] font-semibold text-rose-500 bg-rose-50 px-1.5 py-0.5 rounded">必須</span>
+          </div>
+
+          <p class="text-xs text-slate-500 mb-2.5">該当する要因を1つ選択してください。</p>
+
+          <div class="flex flex-wrap gap-2">
+            <button
+              v-for="r in (reasonsByItem[field.key] || [])"
+              :key="r.text"
+              type="button"
+              @click="selectItemReason(field.key, r.text)"
+              class="px-3.5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold border transition-all duration-150 active:scale-95 select-none"
+              :class="reasons[field.key] === r.text
+                ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
+                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'"
+            >
+              {{ r.text }}
+            </button>
+            <div v-if="!reasonsByItem[field.key] || reasonsByItem[field.key].length === 0" class="text-xs text-slate-400 py-1">
+              ※ 未提案理由マスタが設定されていません
+            </div>
+          </div>
+
+          <p v-if="errors['reason_' + field.key]" class="mt-2 text-xs font-medium text-rose-500 flex items-center">
+            <svg class="w-3.5 h-3.5 mr-1 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            {{ errors['reason_' + field.key] }}
+          </p>
+        </div>
+
+      </section>
+
+      <!-- 買取金額入力セクション（買取大吉で成約トリガー時のみ表示） -->
+      <section 
+        v-if="needsAmount && staff.businessType === '買取大吉'" 
+        class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 transition-all duration-300 animate-fadeIn"
+        :class="errors.amount ? 'border-rose-400 ring-2 ring-rose-100' : 'border-slate-200/80'"
+      >
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <span class="w-6 h-6 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold">
+              ¥
+            </span>
+            <h2 class="text-sm sm:text-base font-bold text-slate-800">買取金額（税込）を入力</h2>
+          </div>
+          <span class="text-[11px] font-semibold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md">必須</span>
+        </div>
+
+        <p class="text-xs text-slate-500 mb-3">成約した買取金額を半角数字（0以上の整数）で入力してください。</p>
+
+        <div class="relative rounded-xl shadow-sm">
+          <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-bold text-base">
+            ¥
+          </div>
+          <input 
+            type="number" 
+            min="0"
+            step="1"
+            inputmode="numeric"
+            pattern="[0-9]*"
+            v-model.number="amount"
+            placeholder="例: 15000"
+            class="block w-full pl-9 pr-12 py-3 bg-slate-50 border rounded-xl text-base font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+            :class="errors.amount ? 'border-rose-400 ring-2 ring-rose-100 bg-rose-50/20' : 'border-slate-200'"
+          />
+          <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-xs font-semibold text-slate-400">
+            円
+          </div>
+        </div>
+
+        <p v-if="errors.amount" class="mt-1.5 text-xs font-medium text-rose-500">
+          {{ errors.amount }}
+        </p>
+      </section>
+
+      <!-- 全体エラー表示 -->
+      <div v-if="serverErrorMessage" class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-start space-x-2">
+        <svg class="w-5 h-5 flex-shrink-0 text-rose-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>{{ serverErrorMessage }}</span>
+      </div>
+
+    </div>
+
+    <!-- 画面下部固定アクションバー（1件ずつ入力用） -->
+    <div class="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-slate-200/80 z-40">
+      <div class="max-w-xl mx-auto flex items-center space-x-3">
+        <button
+          type="button"
+          @click="resetForm"
+          :disabled="isSubmitting"
+          class="px-4 py-3.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 text-sm font-semibold transition-colors disabled:opacity-50"
+        >
+          リセット
+        </button>
+
+        <button
+          type="submit"
+          :disabled="isSubmitting"
+          class="flex-1 py-3.5 px-6 rounded-xl font-bold text-white shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 text-sm sm:text-base disabled:opacity-60 disabled:cursor-not-allowed"
+          :class="staff.businessType === '整骨院'
+            ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/30'
+            : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/30'"
+        >
+          <svg v-if="isSubmitting" class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span>{{ isSubmitting ? '登録処理中...' : '実績を登録する' }}</span>
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <!-- ======================================================== -->
+  <!-- 2. 【複数行入力 (方式A)】                                -->
+  <!-- ======================================================== -->
+  <form v-show="currentTab === 'batch'" @submit.prevent="submitBatchRecords" novalidate class="animate-fadeIn">
+    
+    <!-- 対象日選択カード -->
+    <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 mb-4">
+      <div class="flex items-center justify-between mb-1.5">
+        <label class="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          <span>対象日を選択（当日または過去日）</span>
+        </label>
+        <span class="text-[11px] font-semibold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md">必須</span>
+      </div>
+      <input
+        type="date"
+        v-model="batchTargetDate"
+        :max="maxDateStr"
+        class="block w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+      />
+      <p class="text-[11px] text-slate-400 mt-1.5">※ 未来の日付は選択できません。</p>
+    </div>
+
+    <!-- 明細行リスト -->
+    <div class="space-y-4 mb-4">
+      <section
+        v-for="(rec, recIdx) in batchRecords"
+        :key="rec.id"
+        class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 transition-all duration-200"
+      >
+        <!-- 行ヘッダー -->
+        <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-100">
+          <div class="flex items-center space-x-2">
+            <span 
+              class="w-7 h-7 rounded-lg text-white flex items-center justify-center text-xs font-black shadow-sm"
+              :class="staff.businessType === '整骨院' ? 'bg-emerald-600' : 'bg-amber-600'"
+            >
+              #{{ recIdx + 1 }}
+            </span>
+            <span class="text-sm font-bold text-slate-800">接客明細</span>
+          </div>
+          
+          <div class="flex items-center space-x-1 sm:space-x-2">
+            <!-- 複製ボタン -->
+            <button
+              type="button"
+              @click="copyBatchRecord(recIdx)"
+              title="この明細を複製して下に追加"
+              class="px-2.5 py-1 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg text-xs font-semibold flex items-center space-x-1 border border-slate-200/60 transition-colors"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+              </svg>
+              <span>複製</span>
+            </button>
+
+            <!-- 削除ボタン（1件のみの場合は無効化） -->
+            <button
+              type="button"
+              @click="removeBatchRecord(recIdx)"
+              :disabled="batchRecords.length <= 1"
+              title="この明細を削除"
+              class="px-2.5 py-1 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg text-xs font-semibold flex items-center space-x-1 border border-rose-200/60 transition-colors disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/>
+              </svg>
+              <span>削除</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 明細内の各項目 -->
+        <div class="space-y-3.5">
+          <div 
+            v-for="(field, fIdx) in fields" 
+            :key="rec.id + '_' + field.key"
+            class="pt-2"
+            :class="fIdx > 0 ? 'border-t border-slate-100' : ''"
+          >
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-bold text-slate-700">{{ field.label }}</span>
+              <span v-if="batchErrors[`${recIdx}_${field.key}`]" class="text-[10px] font-semibold text-rose-500">
+                未選択
+              </span>
+            </div>
+
+            <!-- 選択肢ボタン -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              <button
+                v-for="opt in field.options"
+                :key="opt.text"
+                type="button"
+                @click="selectBatchOption(recIdx, field.key, opt)"
+                class="px-2.5 py-2 rounded-xl border text-center font-semibold text-xs transition-all duration-150 active:scale-95 select-none"
+                :class="rec.answers[field.key] === opt.text
+                  ? (staff.businessType === '整骨院'
+                      ? 'bg-emerald-600 text-white border-emerald-600 shadow-sm'
+                      : 'bg-amber-600 text-white border-amber-600 shadow-sm')
+                  : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'"
+              >
+                {{ opt.text }}
+              </button>
+            </div>
+
+            <!-- 項目エラー -->
+            <p v-if="batchErrors[`${recIdx}_${field.key}`]" class="mt-1 text-[11px] font-medium text-rose-500">
+              {{ batchErrors[`${recIdx}_${field.key}`] }}
+            </p>
+
+            <!-- 未提案理由アコーディオン展開 -->
+            <div 
+              v-if="isBatchRecordReasonTriggered(rec, field.key)"
+              class="mt-2.5 p-2.5 bg-rose-50/40 rounded-xl border border-rose-100 animate-fadeIn"
+            >
+              <div class="flex items-center justify-between mb-1.5">
+                <span class="text-[11px] font-bold text-slate-700">「{{ field.label }}」の未提案理由</span>
+                <span class="text-[10px] font-semibold text-rose-500">必須</span>
+              </div>
+              <div class="flex flex-wrap gap-1.5">
+                <button
+                  v-for="r in (reasonsByItem[field.key] || [])"
+                  :key="r.text"
+                  type="button"
+                  @click="selectBatchReason(recIdx, field.key, r.text)"
+                  class="px-2.5 py-1.5 rounded-lg text-xs font-medium border transition-all"
+                  :class="rec.reasons[field.key] === r.text
+                    ? 'bg-slate-800 text-white border-slate-800 shadow-xs'
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'"
+                >
+                  {{ r.text }}
+                </button>
+              </div>
+              <p v-if="batchErrors[`${recIdx}_reason_${field.key}`]" class="mt-1 text-[11px] font-medium text-rose-500">
+                {{ batchErrors[`${recIdx}_reason_${field.key}`] }}
+              </p>
+            </div>
+          </div>
+
+          <!-- 買取金額入力欄（買取大吉のみで成約トリガー時） -->
+          <div 
+            v-if="isBatchRecordAmountTriggered(rec) && staff.businessType === '買取大吉'"
+            class="pt-3 border-t border-slate-100 animate-fadeIn"
+          >
+            <div class="flex items-center justify-between mb-1.5">
+              <span class="text-xs font-bold text-slate-700 flex items-center space-x-1">
+                <span class="text-amber-600">¥</span>
+                <span>買取金額（税込）</span>
+              </span>
+              <span class="text-[10px] font-semibold text-rose-500">必須</span>
+            </div>
+            <div class="relative">
+              <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400 font-bold text-sm">
+                ¥
+              </span>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                v-model.number="rec.amount"
+                placeholder="例: 15000"
+                class="block w-full pl-8 pr-10 py-2 bg-slate-50 border rounded-xl text-sm font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500"
+                :class="batchErrors[`${recIdx}_amount`] ? 'border-rose-400 bg-rose-50/20' : 'border-slate-200'"
+              />
+              <span class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none text-xs font-medium text-slate-400">
+                円
+              </span>
+            </div>
+            <p v-if="batchErrors[`${recIdx}_amount`]" class="mt-1 text-[11px] font-medium text-rose-500">
+              {{ batchErrors[`${recIdx}_amount`] }}
+            </p>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- ＋ 接客明細を追加ボタン -->
+      <button
+        type="button"
+        @click="addBatchRecord"
+        class="w-full py-4 rounded-2xl border-2 border-dashed border-slate-300 hover:border-slate-400 bg-white/70 hover:bg-white text-slate-700 font-bold text-sm transition-all duration-200 flex items-center justify-center space-x-2 active:scale-[0.99] shadow-xs"
+      >
+        <svg class="w-5 h-5 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        <span>＋ 接客明細を追加（現在 {{ batchRecords.length }}件）</span>
+      </button>
+
+      <!-- 全体エラー表示 -->
+      <div v-if="batchServerErrorMessage" class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-start space-x-2">
+        <svg class="w-5 h-5 flex-shrink-0 text-rose-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        <span>{{ batchServerErrorMessage }}</span>
+      </div>
+
+    </div>
+
+    <!-- 画面下部固定アクションバー（方式A用） -->
+    <div class="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-slate-200/80 z-40">
+      <div class="max-w-xl mx-auto flex items-center space-x-3">
+        <button
+          type="button"
+          @click="resetBatchForm"
+          :disabled="isBatchSubmitting"
+          class="px-4 py-3.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 text-sm font-semibold transition-colors disabled:opacity-50"
+        >
+          リセット
+        </button>
+
+        <button
+          type="submit"
+          :disabled="isBatchSubmitting"
+          class="flex-1 py-3.5 px-6 rounded-xl font-bold text-white shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 text-sm sm:text-base disabled:opacity-60 disabled:cursor-not-allowed"
+          :class="staff.businessType === '整骨院'
+            ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/30'
+            : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/30'"
+        >
+          <svg v-if="isBatchSubmitting" class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span>{{ isBatchSubmitting ? '一括登録中...' : `${batchRecords.length}件の実績を一括登録する` }}</span>
+        </button>
+      </div>
+    </div>
+  </form>
+
+  <!-- ======================================================== -->
+  <!-- 3. 【日次集計入力 (方式B)】                              -->
+  <!-- ======================================================== -->
+  <form v-show="currentTab === 'summary'" @submit.prevent="submitDailySummary" novalidate class="animate-fadeIn">
+    
+    <!-- 対象日選択カード -->
+    <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 mb-4">
+      <div class="flex items-center justify-between mb-1.5">
+        <label class="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
+          <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          <span>集計対象日（当日または過去日）</span>
+        </label>
+        <span class="text-[11px] font-semibold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md">必須</span>
+      </div>
+      <input
+        type="date"
+        v-model="summaryTargetDate"
+        :max="maxDateStr"
+        class="block w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+      />
+      <p class="text-[11px] text-slate-400 mt-1.5">※ 未来の日付は選択できません。</p>
+    </div>
+
+    <!-- 本日の総対応件数カード -->
+    <div class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 mb-4">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center space-x-2">
+          <span class="w-6 h-6 rounded-lg bg-slate-100 text-slate-700 flex items-center justify-center text-xs font-bold">
+            Σ
+          </span>
+          <h2 class="text-sm sm:text-base font-bold text-slate-800">本日の総対応件数</h2>
+        </div>
+        <span class="text-[11px] font-semibold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md">必須</span>
+      </div>
+      <p class="text-xs text-slate-500 mb-3">本日対応した接客の総数を半角数字で入力してください。</p>
+      <div class="relative">
+        <input
+          type="number"
+          min="0"
+          step="1"
+          v-model.number="summaryTotalCount"
+          placeholder="例: 15"
+          class="block w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-slate-400/20 focus:border-slate-400 transition-all"
+        />
+        <div class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-xs font-bold text-slate-400">
+          件
+        </div>
+      </div>
+    </div>
+
+    <!-- 各項目の選択肢件数＆未提案理由内訳カード -->
+    <div class="space-y-4 mb-4">
+      <section
+        v-for="(field, index) in fields"
+        :key="'summary_' + field.key"
+        class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border transition-all duration-200"
+        :class="summaryReasonValidation.errors[field.key] ? 'border-rose-400 ring-2 ring-rose-100' : 'border-slate-200/80'"
+      >
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center space-x-2">
+            <span class="w-6 h-6 rounded-lg bg-slate-100 text-slate-600 flex items-center justify-center text-xs font-bold">
+              {{ index + 1 }}
+            </span>
+            <h2 class="text-sm sm:text-base font-bold text-slate-800">{{ field.label }}</h2>
+          </div>
+          <span class="text-xs text-slate-400">各選択肢の件数を入力</span>
+        </div>
+
+        <!-- 選択肢ごとの件数入力フィールド -->
+        <div class="space-y-2 mb-3">
+          <div
+            v-for="opt in field.options"
+            :key="opt.text"
+            class="flex items-center justify-between p-2.5 bg-slate-50/80 rounded-xl border border-slate-200/80"
+          >
+            <div class="flex items-center space-x-2">
+              <span class="text-xs sm:text-sm font-bold text-slate-700">{{ opt.text }}</span>
+              <span v-if="opt.isReasonTrigger" class="text-[10px] bg-rose-50 text-rose-600 px-1.5 py-0.5 rounded border border-rose-200">未提案</span>
+            </div>
+
+            <!-- ステッパー＆インプット -->
+            <div class="flex items-center space-x-1.5">
+              <button
+                type="button"
+                @click="adjustSummaryCount(field.key, opt.text, -1)"
+                class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-sm active:scale-95 shadow-2xs select-none"
+              >-</button>
+              <input
+                type="number"
+                min="0"
+                step="1"
+                v-model.number="summaryCounts[field.key][opt.text]"
+                placeholder="0"
+                class="w-16 text-center py-1 bg-white border border-slate-200 rounded-lg text-sm font-bold text-slate-900 focus:outline-none focus:ring-1 focus:ring-slate-400"
+              />
+              <button
+                type="button"
+                @click="adjustSummaryCount(field.key, opt.text, 1)"
+                class="w-7 h-7 rounded-lg bg-white border border-slate-200 text-slate-600 hover:bg-slate-100 flex items-center justify-center font-bold text-sm active:scale-95 shadow-2xs select-none"
+              >+</button>
+              <span class="text-xs text-slate-400 pl-1">件</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 未提案理由の内訳件数エリア（理由マスタが存在する場合） -->
+        <div 
+          v-if="reasonsByItem[field.key] && reasonsByItem[field.key].length > 0"
+          class="mt-3.5 pt-3.5 border-t border-slate-100"
+        >
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
+              <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+              <span>「{{ field.label }}」未提案理由の内訳</span>
+            </h3>
+
+            <!-- 一致/不一致ステータスバッジ -->
+            <span
+              v-if="summaryReasonValidation.details[field.key]"
+              class="text-[10px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1"
+              :class="summaryReasonValidation.details[field.key].isValid
+                ? 'bg-emerald-100 text-emerald-800'
+                : 'bg-rose-100 text-rose-800 animate-pulse'"
+            >
+              <span v-if="summaryReasonValidation.details[field.key].isValid">✓ 合計一致 ({{ summaryReasonValidation.details[field.key].unproposedCount }}件)</span>
+              <span v-else>⚠️ 不一致 (未提案: {{ summaryReasonValidation.details[field.key].unproposedCount }}件 / 内訳計: {{ summaryReasonValidation.details[field.key].reasonSum }}件)</span>
+            </span>
+          </div>
+
+          <p class="text-[11px] text-slate-500 mb-2">
+            未提案件数と内訳合計が完全に一致している必要があります。
+          </p>
+
+          <!-- 理由ごとの入力リスト -->
+          <div class="space-y-1.5">
+            <div
+              v-for="r in (reasonsByItem[field.key] || [])"
+              :key="r.text"
+              class="flex items-center justify-between p-2 bg-slate-50/60 rounded-xl border border-slate-100 text-xs"
+            >
+              <span class="text-slate-600 font-medium truncate max-w-[220px]" :title="r.text">{{ r.text }}</span>
+              <div class="flex items-center space-x-1">
+                <button
+                  type="button"
+                  @click="adjustSummaryReasonCount(field.key, r.text, -1)"
+                  class="w-6 h-6 rounded-md bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 flex items-center justify-center font-bold text-xs select-none"
+                >-</button>
+                <input
+                  type="number"
+                  min="0"
+                  step="1"
+                  v-model.number="summaryReasonCounts[field.key][r.text]"
+                  placeholder="0"
+                  class="w-14 text-center py-0.5 bg-white border border-slate-200 rounded text-xs font-bold text-slate-800 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  @click="adjustSummaryReasonCount(field.key, r.text, 1)"
+                  class="w-6 h-6 rounded-md bg-white border border-slate-200 text-slate-500 hover:bg-slate-100 flex items-center justify-center font-bold text-xs select-none"
+                >+</button>
+                <span class="text-[11px] text-slate-400 pl-0.5">件</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- リアルタイム不一致エラー警告 -->
+          <p v-if="summaryReasonValidation.errors[field.key]" class="mt-2.5 text-xs font-semibold text-rose-600 flex items-center bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+            <svg class="w-4 h-4 mr-1.5 flex-shrink-0 text-rose-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd"/>
+            </svg>
+            {{ summaryReasonValidation.errors[field.key] }}
+          </p>
+        </div>
+
+      </section>
+    </div>
+
+    <!-- 買取成約総額セクション（買取大吉で成約件数 > 0 の時のみ表示） -->
+    <div 
+      v-if="summaryNeedsAmount && staff.businessType === '買取大吉'"
+      class="bg-white rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-200/80 mb-4 animate-fadeIn"
+    >
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center space-x-2">
+          <span class="w-6 h-6 rounded-lg bg-amber-100 text-amber-600 flex items-center justify-center text-xs font-bold">
+            ¥
+          </span>
+          <h2 class="text-sm sm:text-base font-bold text-slate-800">買取成約総額（税込）を入力</h2>
+        </div>
+        <span class="text-[11px] font-semibold text-rose-500 bg-rose-50 px-2 py-0.5 rounded-md">必須</span>
+      </div>
+      <p class="text-xs text-slate-500 mb-3">成約が1件以上あるため、成約した買取金額の総額を半角数字（0以上の整数）で入力してください。</p>
+      
+      <div class="relative rounded-xl shadow-sm">
+        <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400 font-bold text-base">
+          ¥
+        </div>
+        <input 
+          type="number" 
+          min="0"
+          step="1"
+          v-model.number="summaryTotalAmount"
+          placeholder="例: 150000"
+          class="block w-full pl-9 pr-12 py-3 bg-slate-50 border border-slate-200 rounded-xl text-base font-bold text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 transition-all"
+        />
+        <div class="absolute inset-y-0 right-0 pr-3.5 flex items-center pointer-events-none text-xs font-semibold text-slate-400">
+          円
+        </div>
+      </div>
+    </div>
+
+    <!-- 全体エラー表示 -->
+    <div v-if="summaryServerErrorMessage" class="p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-sm flex items-start space-x-2 mb-4">
+      <svg class="w-5 h-5 flex-shrink-0 text-rose-500 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      <span>{{ summaryServerErrorMessage }}</span>
+    </div>
+
+    <!-- 画面下部固定アクションバー（方式B用） -->
+    <div class="fixed bottom-0 left-0 right-0 p-4 bg-white/90 backdrop-blur-md border-t border-slate-200/80 z-40">
+      <div class="max-w-xl mx-auto flex items-center space-x-3">
+        <button
+          type="button"
+          @click="resetSummaryForm"
+          :disabled="isSummarySubmitting"
+          class="px-4 py-3.5 rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-100 text-sm font-semibold transition-colors disabled:opacity-50"
+        >
+          リセット
+        </button>
+
+        <button
+          type="submit"
+          :disabled="isSummarySubmitting || !isSummaryFormValid"
+          class="flex-1 py-3.5 px-6 rounded-xl font-bold text-white shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 text-sm sm:text-base disabled:opacity-60 disabled:cursor-not-allowed"
+          :class="staff.businessType === '整骨院'
+            ? 'bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-emerald-600/30'
+            : 'bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-500 hover:to-orange-500 shadow-amber-600/30'"
+        >
+          <svg v-if="isSummarySubmitting" class="animate-spin -ml-1 mr-2 h-5 w-5 text-white" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span>{{ isSummarySubmitting ? '日次集計を登録中...' : '日次集計を登録する' }}</span>
+        </button>
+      </div>
+    </div>
+  </form>
+
+</div>
+
+<style>
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fadeIn {
+  animation: fadeIn 0.25s ease-out forwards;
+}
+</style>
+
+
+================================================================================
+[FILE 15/16] gas\共通ユーティリティ.js
+================================================================================
+/**
+ * 接客実績入力Webアプリケーション
+ * 共通ユーティリティ関数
+ */
+
+/**
+ * 真偽値の安全なパース
+ * @param {*} val 判定対象
+ * @param {boolean} defaultValue デフォルト値
+ * @return {boolean}
+ */
+function toBool_(val, defaultValue = false) {
+  if (val === undefined || val === null || val === '') return defaultValue;
+  if (typeof val === 'boolean') return val;
+  const s = String(val).trim().toUpperCase();
+  if (s === 'TRUE' || s === '1') return true;
+  if (s === 'FALSE' || s === '0') return false;
+  return defaultValue;
+}
+
+/**
+ * Webアプリ公開URLの取得
+ * スクリプトプロパティ WEB_APP_URL を優先、なければ ScriptApp から取得
+ * @return {string}
+ */
+function getWebAppUrl_() {
+  try {
+    const propUrl = PropertiesService.getScriptProperties().getProperty(CONFIG.PROP_WEB_APP_URL);
+    if (propUrl && propUrl.trim()) {
+      return propUrl.trim();
+    }
+    return ScriptApp.getService().getUrl() || '';
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
+ * ロック取得・解放の定型ラッパー関数
+ * @param {Function} fn 実行する処理
+ * @param {number} timeoutMs ロック待機ミリ秒（デフォルト10秒）
+ * @param {string} busyMessage 競合時のエラーメッセージ
+ * @return {Object}
+ */
+function withLock_(fn, timeoutMs = 10000, busyMessage = '他ユーザーの書き込み処理と競合しました。時間をおいて再実行してください。') {
+  const lock = LockService.getScriptLock();
+  try {
+    const hasLock = lock.tryLock(timeoutMs);
+    if (!hasLock) {
+      return { success: false, message: busyMessage };
+    }
+    return fn();
+  } catch (error) {
+    console.error('withLock_ 実行エラー:', error);
+    return { success: false, message: error.message || '処理中にエラーが発生しました。' };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * シートの安全な上書きヘルパー
+ * 書き込んだあと余剰行のみをクリアして全件消失を防止
+ * @param {Sheet} sheet 対象シート
+ * @param {Array<Array<*>>} rows 書き込む行データ配列
+ * @param {number} width 列数
+ */
+function overwriteSheet_(sheet, rows, width) {
+  if (!rows || rows.length === 0) return;
+  const normalized = rows.map(r => Array.from({ length: width }, (_, i) => r[i] ?? ''));
+  sheet.getRange(1, 1, normalized.length, width).setValues(normalized);
+  const extra = sheet.getMaxRows() - normalized.length;
+  if (extra > 0) {
+    sheet.getRange(normalized.length + 1, 1, extra, sheet.getMaxColumns()).clearContent();
+  }
+}
+
+/**
+ * HTMLエスケープ処理（XSS防止）
+ * @param {*} str エスケープ対象文字列
+ * @return {string}
+ */
+function escapeHtml_(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
+ * 0以上の正の整数チェック
+ * @param {*} val チェック対象
+ * @return {boolean}
+ */
+function isValidIntegerAmount_(val) {
+  if (val === null || val === undefined || val === '') return false;
+  const num = Number(val);
+  return Number.isInteger(num) && num >= 0;
+}
+
+
+================================================================================
+[FILE 16/16] gas\定数.js
+================================================================================
+/**
+ * 接客実績入力Webアプリケーション
+ * 定数定義・マスタ設定
+ */
+const CONFIG = {
+  // スクリプトプロパティキー
+  PROP_WEB_APP_URL: 'WEB_APP_URL',
+
+  // シート名定義
+  SHEETS: {
+    STAFF: 'スタッフマスタ',
+    ITEMS: '設定_項目マスタ',
+    REASONS: '理由マスタ',
+    ANSWERS_SEIKOTSU: '回答_整骨院',
+    ANSWERS_DAIKICHI: '回答_買取大吉',
+    SUMMARY_SEIKOTSU: '日次集計_整骨院',
+    SUMMARY_DAIKICHI: '日次集計_買取大吉'
+  },
+
+  // 事業区分
+  BUSINESS_TYPES: ['整骨院', '買取大吉'],
+
+  // 事業区分ごとのテーマカラー定義
+  THEMES: {
+    '整骨院': {
+      label: '整骨院',
+      primaryColor: '#059669', // Emerald 600
+      primaryHeaderBg: '#065F46', // Emerald 800
+      answerHeaderBg: '#2563EB', // Blue 600
+      tailwindBadge: 'bg-emerald-100 text-emerald-800'
+    },
+    '買取大吉': {
+      label: '買取大吉',
+      primaryColor: '#d97706', // Amber 600
+      primaryHeaderBg: '#7C2D12', // Amber 800
+      answerHeaderBg: '#D97706', // Amber 600
+      tailwindBadge: 'bg-amber-100 text-amber-800'
+    }
+  },
+
+  // 固定ヘッダー定義
+  HEADERS: {
+    STAFF: ['スタッフID', 'スタッフ名', '事業区分', '店舗名', '有効フラグ', '専用URL'],
+    ITEMS: [
+      '事業区分',
+      '入力項目キー',
+      '項目表示名',
+      '選択肢テキスト',
+      '表示順',
+      '未提案トリガーフラグ',
+      '金額入力トリガーフラグ',
+      '有効フラグ'
+    ],
+    REASONS: ['事業区分', '入力項目キー', '未提案理由', '表示順', '有効フラグ']
+  },
+
+  // 予約キー一覧
+  RESERVED_KEYS: ['timestamp', 'staffId', 'staffName', 'storeName', 'amount', 'reason', 'submissionId'],
+
+  // DeveloperMetadata キー（識別子定義）
+  META_KEYS: {
+    ITEM_KEY: 'itemKey',
+    SUBMISSION_ID: 'submissionId'
+  },
+
+  // 回答シートの固定先頭列
+  FIXED_ANSWER_COLUMNS: [
+    { label: 'タイムスタンプ', key: 'timestamp' },
+    { label: '対応日', key: 'targetDate' },
+    { label: 'スタッフID', key: 'staffId' },
+    { label: 'スタッフ名', key: 'staffName' },
+    { label: '店舗名', key: 'storeName' }
+  ],
+  // 回答シートの固定最終列
+  FINAL_ANSWER_COLUMN: { label: '送信ID', key: 'submissionId' }
+};
+
+

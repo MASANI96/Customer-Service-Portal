@@ -1,0 +1,6 @@
+{
+  "name": "接客実績入力＆分析ダッシュボード 統合デモポータル",
+  "description": "現場スタッフのカンタン実績入力、経営・管理者向けリアルタイム高度KPI分析、ノーコードでのマスタ変更即時反映を双方向連携で実演する店舗ビジネス向け統合プレゼンデモWebアプリケーション。",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
